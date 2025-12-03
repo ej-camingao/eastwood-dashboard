@@ -14,7 +14,7 @@ export async function registerNewAttendeeAndCheckIn(
 ): Promise<ServiceResponse<Attendee>> {
 	try {
 		// Validate required fields
-		if (!data.first_name || !data.last_name || !data.contact_number || !data.school_name || !data.barangay || !data.city) {
+		if (!data.first_name || !data.last_name || !data.contact_number || !data.school_name || !data.barangay || !data.city || !data.gender) {
 			return {
 				success: false,
 				error: 'Please fill in all required fields.'
@@ -43,6 +43,11 @@ export async function registerNewAttendeeAndCheckIn(
 				barangay: data.barangay.trim(),
 				city: data.city.trim(),
 				social_media_name: data.social_media_name?.trim() || null,
+				gender: data.gender,
+				is_dgroup_member: data.is_dgroup_member,
+				dgroup_leader_name: data.is_dgroup_member && data.dgroup_leader_name
+					? data.dgroup_leader_name.trim()
+					: null,
 				is_first_timer: true
 			})
 			.select()

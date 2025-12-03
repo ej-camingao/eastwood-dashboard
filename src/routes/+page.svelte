@@ -16,7 +16,10 @@
 		school_name: '',
 		barangay: '',
 		city: '',
-		social_media_name: ''
+		social_media_name: '',
+		gender: 'Male',
+		is_dgroup_member: false,
+		dgroup_leader_name: ''
 	};
 
 	// Search state for returning users
@@ -73,11 +76,13 @@
 			!registrationForm.contact_number.trim() ||
 			!registrationForm.school_name.trim() ||
 			!registrationForm.barangay.trim() ||
-			!registrationForm.city.trim()
+			!registrationForm.city.trim() ||
+			!registrationForm.gender
 		) {
 			showError('Please fill in all required fields.');
 			return;
 		}
+
 
 		// Validate contact number format
 		const contactRegex = /^\+639\d{9}$/;
@@ -112,7 +117,10 @@
 					school_name: '',
 					barangay: '',
 					city: '',
-					social_media_name: ''
+					social_media_name: '',
+					gender: 'Male',
+					is_dgroup_member: false,
+					dgroup_leader_name: ''
 				};
 			} else {
 				showError(response.error || 'Registration failed. Please try again.');
@@ -308,6 +316,23 @@
 						</div>
 					</div>
 
+					<!-- Gender -->
+					<div>
+						<label for="gender" class="block text-sm font-medium text-gray-700 mb-1">
+							Gender <span class="text-red-500">*</span>
+						</label>
+						<select
+							id="gender"
+							bind:value={registrationForm.gender}
+							required
+							disabled={isSubmitting}
+							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+						>
+							<option value="Male">Male</option>
+							<option value="Female">Female</option>
+						</select>
+					</div>
+
 					<!-- Contact Number -->
 					<div>
 						<label for="contact_number" class="block text-sm font-medium text-gray-700 mb-1">
@@ -415,6 +440,41 @@
 							disabled={isSubmitting}
 							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
 							placeholder="Facebook/Messenger Handle"
+						/>
+					</div>
+
+					<!-- DGroup Member -->
+					<div>
+						<label for="is_dgroup_member" class="block text-sm font-medium text-gray-700 mb-1">
+							Are you a member of a DGroup? <span class="text-red-500">*</span>
+						</label>
+						<select
+							id="is_dgroup_member"
+							value={registrationForm.is_dgroup_member ? 'true' : 'false'}
+							on:change={(e) => {
+								registrationForm.is_dgroup_member = e.currentTarget.value === 'true';
+							}}
+							required
+							disabled={isSubmitting}
+							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+						>
+							<option value="false">No</option>
+							<option value="true">Yes</option>
+						</select>
+					</div>
+
+					<!-- DGroup Leader Name -->
+					<div>
+						<label for="dgroup_leader_name" class="block text-sm font-medium text-gray-700 mb-1">
+							Name of your DGroup Leader
+						</label>
+						<input
+							type="text"
+							id="dgroup_leader_name"
+							bind:value={registrationForm.dgroup_leader_name}
+							disabled={isSubmitting}
+							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+							placeholder="DGroup Leader Name (optional)"
 						/>
 					</div>
 

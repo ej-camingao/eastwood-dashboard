@@ -11,6 +11,9 @@ export interface Attendee {
 	barangay: string;
 	city: string;
 	social_media_name: string | null;
+	gender: 'Male' | 'Female';
+	is_dgroup_member: boolean;
+	dgroup_leader_name: string | null;
 	is_first_timer: boolean;
 	created_at: string; // ISO timestamp
 }
@@ -25,6 +28,9 @@ export interface AttendeeRegistrationData {
 	barangay: string;
 	city: string;
 	social_media_name?: string;
+	gender: 'Male' | 'Female';
+	is_dgroup_member: boolean;
+	dgroup_leader_name?: string;
 }
 
 export interface AttendanceLog {

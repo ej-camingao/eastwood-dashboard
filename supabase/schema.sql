@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS attendees (
     barangay TEXT NOT NULL,
     city TEXT NOT NULL,
     social_media_name TEXT,
+    gender TEXT NOT NULL DEFAULT 'Male' CHECK (gender IN ('Male', 'Female')),
+    is_dgroup_member BOOLEAN NOT NULL DEFAULT false,
+    dgroup_leader_name TEXT,
     is_first_timer BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
@@ -41,6 +44,9 @@ CREATE INDEX IF NOT EXISTS idx_attendance_log_attendee_service ON attendance_log
 COMMENT ON TABLE attendees IS 'Stores information about all attendees registered for Elevate Saturday Service';
 COMMENT ON TABLE attendance_log IS 'Tracks attendance records for each service date';
 COMMENT ON COLUMN attendees.contact_number IS 'Unique contact number in format +639xxxxxxxxx';
+COMMENT ON COLUMN attendees.gender IS 'Gender of the attendee: Male or Female';
+COMMENT ON COLUMN attendees.is_dgroup_member IS 'Whether the attendee is a member of a DGroup';
+COMMENT ON COLUMN attendees.dgroup_leader_name IS 'Name of the DGroup leader (required if is_dgroup_member is true)';
 COMMENT ON COLUMN attendance_log.service_date IS 'Date of the service, defaults to current_date';
 COMMENT ON CONSTRAINT attendance_log_attendee_id_service_date_key ON attendance_log IS 'Prevents duplicate check-ins for the same attendee on the same service date';
 

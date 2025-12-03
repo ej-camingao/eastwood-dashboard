@@ -18,6 +18,9 @@ export interface Database {
 					barangay: string;
 					city: string;
 					social_media_name: string | null;
+					gender: string;
+					is_dgroup_member: boolean;
+					dgroup_leader_name: string | null;
 					is_first_timer: boolean;
 					created_at: string;
 				};
@@ -32,6 +35,9 @@ export interface Database {
 					barangay: string;
 					city: string;
 					social_media_name?: string | null;
+					gender: string;
+					is_dgroup_member: boolean;
+					dgroup_leader_name?: string | null;
 					is_first_timer?: boolean;
 					created_at?: string;
 				};
@@ -46,6 +52,9 @@ export interface Database {
 					barangay?: string;
 					city?: string;
 					social_media_name?: string | null;
+					gender?: string;
+					is_dgroup_member?: boolean;
+					dgroup_leader_name?: string | null;
 					is_first_timer?: boolean;
 					created_at?: string;
 				};
