@@ -3,7 +3,8 @@ import type {
 	Attendee,
 	AttendeeRegistrationData,
 	ServiceResponse,
-	SearchResult
+	SearchResult,
+	CheckedInAttendee
 } from '$lib/types/attendance';
 
 /**
@@ -258,6 +259,122 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 		};
 	} catch (error) {
 		console.error('Error in checkInAttendee:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Get all checked-in attendees for today's service
+ */
+export async function getCheckedInAttendeesToday(): Promise<ServiceResponse<CheckedInAttendee[]>> {
+	try {
+		const today = new Date().toISOString().split('T')[0];
+
+		// Fetch attendance logs for today with attendee information
+		const { data, error } = await supabase
+			.from('attendance_log')
+			.select(
+				`
+				id,
+				attendee_id,
+				check_in_time,
+				attendees:attendee_id (
+					id,
+					first_name,
+					last_name,
+					contact_number
+				)
+			`
+			)
+			.eq('service_date', today)
+			.order('check_in_time', { ascending: false });
+
+		if (error) {
+			console.error('Error fetching checked-in attendees:', error);
+			return {
+				success: false,
+				error: error.message || 'Failed to fetch checked-in attendees.'
+			};
+		}
+
+		// Transform the data to match CheckedInAttendee interface
+		const checkedInAttendees: CheckedInAttendee[] =
+			data?.map((log: any) => {
+				const attendee = log.attendees;
+				return {
+					attendance_log_id: log.id,
+					attendee_id: attendee.id,
+					first_name: attendee.first_name,
+					last_name: attendee.last_name,
+					contact_number: attendee.contact_number,
+					full_name: `${attendee.first_name} ${attendee.last_name}`,
+					check_in_time: log.check_in_time
+				};
+			}) || [];
+
+		return {
+			success: true,
+			data: checkedInAttendees
+		};
+	} catch (error) {
+		console.error('Error in getCheckedInAttendeesToday:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Remove an attendee from today's attendance (undo check-in)
+ */
+export async function removeCheckIn(attendanceLogId: string): Promise<ServiceResponse<void>> {
+	try {
+		if (!attendanceLogId) {
+			return {
+				success: false,
+				error: 'Invalid attendance log ID.'
+			};
+		}
+
+		const { data, error } = await supabase
+			.from('attendance_log')
+			.delete()
+			.eq('id', attendanceLogId)
+			.select();
+
+		if (error) {
+			console.error('Error removing check-in:', error);
+			// Handle RLS policy errors
+			if (error.code === '42501' || error.message?.includes('permission denied')) {
+				return {
+					success: false,
+					error: 'Permission denied. Please check your Supabase Row Level Security policies for DELETE operations.'
+				};
+			}
+			return {
+				success: false,
+				error: error.message || 'Failed to remove check-in.'
+			};
+		}
+
+		// Check if any rows were actually deleted
+		if (!data || data.length === 0) {
+			console.warn('No rows were deleted. This might be due to RLS policies.');
+			return {
+				success: false,
+				error: 'No record was deleted. This might be due to missing DELETE permissions in your database policies.'
+			};
+		}
+
+		return {
+			success: true
+		};
+	} catch (error) {
+		console.error('Error in removeCheckIn:', error);
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : 'An unexpected error occurred.'

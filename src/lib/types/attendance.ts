@@ -48,6 +48,16 @@ export interface SearchResult {
 	full_name: string; // Computed: first_name + ' ' + last_name
 }
 
+export interface CheckedInAttendee {
+	attendance_log_id: string;
+	attendee_id: string;
+	first_name: string;
+	last_name: string;
+	contact_number: string;
+	full_name: string; // Computed: first_name + ' ' + last_name
+	check_in_time: string; // ISO timestamp
+}
+
 export interface ServiceResponse<T = unknown> {
 	success: boolean;
 	data?: T;

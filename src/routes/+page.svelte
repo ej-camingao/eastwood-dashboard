@@ -2,9 +2,15 @@
 	import {
 		registerNewAttendeeAndCheckIn,
 		searchAttendees,
-		checkInAttendee
+		checkInAttendee,
+		getCheckedInAttendeesToday,
+		removeCheckIn
 	} from '$lib/services/attendance';
-	import type { AttendeeRegistrationData, SearchResult } from '$lib/types/attendance';
+	import type {
+		AttendeeRegistrationData,
+		SearchResult,
+		CheckedInAttendee
+	} from '$lib/types/attendance';
 
 	// Form state for first-time registration
 	let registrationForm: AttendeeRegistrationData = {
@@ -27,6 +33,10 @@
 	let searchResults = $state<SearchResult[]>([]);
 	let isSearching = $state(false);
 	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Checked-in attendees state
+	let checkedInAttendees = $state<CheckedInAttendee[]>([]);
+	let isLoadingCheckedIn = $state(false);
 
 	// UI state
 	let activePath: 'new' | 'returning' = $state('new');
@@ -147,6 +157,8 @@
 				// Clear search
 				searchQuery = '';
 				searchResults = [];
+				// Reload checked-in attendees list
+				await loadCheckedInAttendees();
 			} else {
 				showError(response.error || 'Check-in failed. Please try again.');
 			}
@@ -184,6 +196,59 @@
 	function getTodayDate(): string {
 		return new Date().toISOString().split('T')[0];
 	}
+
+	// Load checked-in attendees for today
+	async function loadCheckedInAttendees() {
+		isLoadingCheckedIn = true;
+		const response = await getCheckedInAttendeesToday();
+		isLoadingCheckedIn = false;
+
+		if (response.success && response.data) {
+			checkedInAttendees = response.data;
+		} else {
+			checkedInAttendees = [];
+			if (response.error) {
+				console.error('Failed to load checked-in attendees:', response.error);
+			}
+		}
+	}
+
+	// Handle removing a check-in
+	async function handleRemoveCheckIn(attendanceLogId: string, attendeeName: string) {
+		if (!confirm(`Are you sure you want to remove ${attendeeName} from today's attendance?`)) {
+			return;
+		}
+
+		isSubmitting = true;
+		const response = await removeCheckIn(attendanceLogId);
+
+		if (response.success) {
+			showSuccess(`${attendeeName} has been removed from today's attendance.`);
+			// Reload the checked-in attendees list
+			await loadCheckedInAttendees();
+		} else {
+			showError(response.error || 'Failed to remove check-in. Please try again.');
+		}
+
+		isSubmitting = false;
+	}
+
+	// Format check-in time for display
+	function formatCheckInTime(timestamp: string): string {
+		const date = new Date(timestamp);
+		return date.toLocaleTimeString('en-US', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: true
+		});
+	}
+
+	// Load checked-in attendees when returning tab is active
+	$effect(() => {
+		if (activePath === 'returning') {
+			loadCheckedInAttendees();
+		}
+	});
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -519,113 +584,196 @@
 			<div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
 				<h2 class="text-2xl font-semibold text-gray-900 mb-6">Returning User Check-In</h2>
 
-				<!-- Search Input -->
-				<div class="mb-6">
-					<label for="search" class="block text-sm font-medium text-gray-700 mb-2">
-						Search by Name or Contact Number
-					</label>
-					<div class="relative">
-						<input
-							type="text"
-							id="search"
-							bind:value={searchQuery}
-							on:input={(e) => handleSearchInput(e.currentTarget.value)}
-							disabled={isSubmitting}
-							class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-							placeholder="Type your name or contact number..."
-							autocomplete="off"
-						/>
-						<svg
-							class="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							></path>
-						</svg>
-						{#if isSearching}
-							<div class="absolute right-3 top-3.5">
-								<svg
-									class="animate-spin h-5 w-5 text-indigo-600"
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<circle
-										class="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										stroke-width="4"
-									></circle>
-									<path
-										class="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									></path>
-								</svg>
-							</div>
-						{/if}
-					</div>
-					{#if searchQuery && searchQuery.length < 2}
-						<p class="mt-1 text-sm text-gray-500">Type at least 2 characters to search</p>
-					{/if}
-				</div>
+				<!-- Search & Check-In Section -->
+				<div class="mb-8">
+					<h3 class="text-lg font-semibold text-gray-900 mb-4">Search & Check-In</h3>
 
-				<!-- Search Results -->
-				{#if searchResults.length > 0}
-					<div class="space-y-2">
-						<p class="text-sm font-medium text-gray-700 mb-3">
-							Found {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}:
-						</p>
-						{#each searchResults as result (result.id)}
-							<button
-								type="button"
-								on:click={() => handleCheckIn(result.id, result.first_name)}
+					<!-- Search Input -->
+					<div class="mb-6">
+						<label for="search" class="block text-sm font-medium text-gray-700 mb-2">
+							Search by Name or Contact Number
+						</label>
+						<div class="relative">
+							<input
+								type="text"
+								id="search"
+								bind:value={searchQuery}
+								on:input={(e) => handleSearchInput(e.currentTarget.value)}
 								disabled={isSubmitting}
-								class="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+								class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+								placeholder="Type your name or contact number..."
+								autocomplete="off"
+							/>
+							<svg
+								class="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								xmlns="http://www.w3.org/2000/svg"
 							>
-								<div class="flex items-center justify-between">
-									<div>
-										<p class="font-medium text-gray-900">{result.full_name}</p>
-										<p class="text-sm text-gray-500 mt-1">
-											Contact: {formatContactNumber(result.contact_number)}
-										</p>
-									</div>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+								></path>
+							</svg>
+							{#if isSearching}
+								<div class="absolute right-3 top-3.5">
 									<svg
-										class="w-5 h-5 text-indigo-600"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
+										class="animate-spin h-5 w-5 text-indigo-600"
 										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
 									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
 										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 5l7 7-7 7"
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 										></path>
 									</svg>
 								</div>
-							</button>
-						{/each}
+							{/if}
+						</div>
+						{#if searchQuery && searchQuery.length < 2}
+							<p class="mt-1 text-sm text-gray-500">Type at least 2 characters to search</p>
+						{/if}
 					</div>
-				{:else if searchQuery && searchQuery.length >= 2 && !isSearching}
-					<div class="text-center py-8 text-gray-500">
-						<p>No results found. Please check your spelling or try a different search term.</p>
+
+					<!-- Search Results -->
+					{#if searchResults.length > 0}
+						<div class="space-y-2">
+							<p class="text-sm font-medium text-gray-700 mb-3">
+								Found {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}:
+							</p>
+							{#each searchResults as result (result.id)}
+								<button
+									type="button"
+									on:click={() => handleCheckIn(result.id, result.first_name)}
+									disabled={isSubmitting}
+									class="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									<div class="flex items-center justify-between">
+										<div>
+											<p class="font-medium text-gray-900">{result.full_name}</p>
+											<p class="text-sm text-gray-500 mt-1">
+												Contact: {formatContactNumber(result.contact_number)}
+											</p>
+										</div>
+										<svg
+											class="w-5 h-5 text-indigo-600"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											xmlns="http://www.w3.org/2000/svg"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M9 5l7 7-7 7"
+											></path>
+										</svg>
+									</div>
+								</button>
+							{/each}
+						</div>
+					{:else if searchQuery && searchQuery.length >= 2 && !isSearching}
+						<div class="text-center py-8 text-gray-500">
+							<p>No results found. Please check your spelling or try a different search term.</p>
+						</div>
+					{:else if !searchQuery}
+						<div class="text-center py-8 text-gray-500">
+							<p>Start typing your name or contact number to search for your record.</p>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Checked-In Attendees List -->
+				<div>
+					<div class="flex items-center justify-between mb-4">
+						<h3 class="text-lg font-semibold text-gray-900">
+							Checked-In Attendees Today ({checkedInAttendees.length})
+						</h3>
+						<button
+							type="button"
+							on:click={loadCheckedInAttendees}
+							disabled={isLoadingCheckedIn}
+							class="text-sm text-indigo-600 hover:text-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+						>
+							<svg
+								class="w-4 h-4 {isLoadingCheckedIn ? 'animate-spin' : ''}"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+								></path>
+							</svg>
+							Refresh
+						</button>
 					</div>
-				{:else if !searchQuery}
-					<div class="text-center py-8 text-gray-500">
-						<p>Start typing your name or contact number to search for your record.</p>
-					</div>
-				{/if}
+
+					{#if isLoadingCheckedIn}
+						<div class="text-center py-4 text-gray-500">
+							<p>Loading checked-in attendees...</p>
+						</div>
+					{:else if checkedInAttendees.length > 0}
+						<div class="space-y-2 max-h-64 overflow-y-auto">
+							{#each checkedInAttendees as attendee (attendee.attendance_log_id)}
+								<div
+									class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+								>
+									<div class="flex-1">
+										<p class="font-medium text-gray-900">{attendee.full_name}</p>
+										<p class="text-sm text-gray-500">
+											Checked in at {formatCheckInTime(attendee.check_in_time)}
+										</p>
+									</div>
+									<button
+										type="button"
+										on:click={() => handleRemoveCheckIn(attendee.attendance_log_id, attendee.full_name)}
+										disabled={isSubmitting}
+										class="ml-4 p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+										title="Remove from attendance"
+									>
+										<svg
+											class="w-5 h-5"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+											xmlns="http://www.w3.org/2000/svg"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											></path>
+										</svg>
+									</button>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="text-center py-4 text-gray-500 border border-gray-200 rounded-lg">
+							<p>No attendees checked in yet today.</p>
+						</div>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
