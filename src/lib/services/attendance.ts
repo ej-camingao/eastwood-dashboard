@@ -412,6 +412,111 @@ export async function removeCheckIn(attendanceLogId: string): Promise<ServiceRes
 }
 
 /**
+ * Check if an attendee is a facilitator (exists in facilitators table)
+ */
+export async function isFacilitator(attendeeId: string): Promise<boolean> {
+	try {
+		const { data, error } = await supabase
+			.from('facilitators')
+			.select('id')
+			.eq('id', attendeeId)
+			.single();
+
+		return !error && data !== null;
+	} catch (error) {
+		console.error('Error in isFacilitator:', error);
+		return false;
+	}
+}
+
+/**
+ * Get facilitators who have checked in today
+ */
+export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facilitator[]>> {
+	try {
+		const today = new Date().toISOString().split('T')[0];
+
+		// Get all checked-in attendee IDs for today
+		const { data: attendanceLogs, error: attendanceError } = await supabase
+			.from('attendance_log')
+			.select('attendee_id')
+			.eq('service_date', today);
+
+		if (attendanceError) {
+			return {
+				success: false,
+				error: attendanceError.message || 'Failed to fetch checked-in attendees.'
+			};
+		}
+
+		if (!attendanceLogs || attendanceLogs.length === 0) {
+			return {
+				success: true,
+				data: []
+			};
+		}
+
+		// Extract unique attendee IDs
+		const checkedInAttendeeIds = [...new Set(attendanceLogs.map((log) => log.attendee_id))];
+
+		// Get all facilitators whose IDs are in the checked-in attendee list
+		const { data: facilitators, error: facilitatorsError } = await supabase
+			.from('facilitators')
+			.select('*')
+			.in('id', checkedInAttendeeIds)
+			.order('first_name', { ascending: true });
+
+		if (facilitatorsError) {
+			return {
+				success: false,
+				error: facilitatorsError.message || 'Failed to fetch facilitators.'
+			};
+		}
+
+		return {
+			success: true,
+			data: facilitators || []
+		};
+	} catch (error) {
+		console.error('Error in getCheckedInFacilitators:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Get checked-in facilitators filtered by gender
+ */
+export async function getCheckedInFacilitatorsByGender(
+	gender: 'Male' | 'Female'
+): Promise<ServiceResponse<Facilitator[]>> {
+	try {
+		const checkedInResponse = await getCheckedInFacilitators();
+		if (!checkedInResponse.success || !checkedInResponse.data) {
+			return {
+				success: false,
+				error: checkedInResponse.error || 'Failed to fetch checked-in facilitators.'
+			};
+		}
+
+		const facilitators = checkedInResponse.data.filter((f) => f.gender === gender);
+
+		return {
+			success: true,
+			data: facilitators
+		};
+	} catch (error) {
+		console.error('Error in getCheckedInFacilitatorsByGender:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
  * Get all facilitators
  */
 export async function getFacilitators(): Promise<ServiceResponse<Facilitator[]>> {
@@ -476,6 +581,7 @@ export async function getFacilitatorsByGender(
 
 /**
  * Get a facilitator with their assigned attendees (checked in today)
+ * Filters out facilitator attendees from the attendee list
  */
 export async function getFacilitatorWithAttendees(
 	facilitatorId: string
@@ -495,6 +601,16 @@ export async function getFacilitatorWithAttendees(
 				success: false,
 				error: facilitatorError?.message || 'Facilitator not found.'
 			};
+		}
+
+		// Get all facilitator IDs to filter them out from attendees
+		const { data: allFacilitators, error: facilitatorIdsError } = await supabase
+			.from('facilitators')
+			.select('id');
+		
+		const facilitatorIds = new Set<string>();
+		if (!facilitatorIdsError && allFacilitators) {
+			allFacilitators.forEach((f) => facilitatorIds.add(f.id));
 		}
 
 		// Get checked-in attendees for today assigned to this facilitator
@@ -525,20 +641,26 @@ export async function getFacilitatorWithAttendees(
 			};
 		}
 
-		// Transform the data
+		// Transform the data, filtering out facilitator attendees
 		const attendees: CheckedInAttendee[] =
-			attendanceLogs?.map((log: any) => {
-				const attendee = log.attendees;
-				return {
-					attendance_log_id: log.id,
-					attendee_id: attendee.id,
-					first_name: attendee.first_name,
-					last_name: attendee.last_name,
-					contact_number: attendee.contact_number,
-					full_name: `${attendee.first_name} ${attendee.last_name}`,
-					check_in_time: log.check_in_time
-				};
-			}) || [];
+			attendanceLogs
+				?.filter((log: any) => {
+					const attendee = log.attendees;
+					// Exclude attendees who are facilitators
+					return !facilitatorIds.has(attendee.id);
+				})
+				.map((log: any) => {
+					const attendee = log.attendees;
+					return {
+						attendance_log_id: log.id,
+						attendee_id: attendee.id,
+						first_name: attendee.first_name,
+						last_name: attendee.last_name,
+						contact_number: attendee.contact_number,
+						full_name: `${attendee.first_name} ${attendee.last_name}`,
+						check_in_time: log.check_in_time
+					};
+				}) || [];
 
 		return {
 			success: true,
@@ -559,12 +681,15 @@ export async function getFacilitatorWithAttendees(
 
 /**
  * Get all facilitators with their assigned attendees (checked in today)
+ * Only returns facilitators who have checked in today
+ * Filters out facilitator attendees from the attendee lists
  */
 export async function getAllFacilitatorsWithAttendees(): Promise<
 	ServiceResponse<FacilitatorWithAttendees[]>
 > {
 	try {
-		const facilitatorsResponse = await getFacilitators();
+		// Only get facilitators who have checked in today
+		const facilitatorsResponse = await getCheckedInFacilitators();
 		if (!facilitatorsResponse.success || !facilitatorsResponse.data) {
 			return {
 				success: false,
@@ -573,6 +698,16 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 		}
 
 		const today = new Date().toISOString().split('T')[0];
+
+		// Get all facilitator IDs to filter them out from attendees
+		const { data: allFacilitators, error: facilitatorIdsError } = await supabase
+			.from('facilitators')
+			.select('id');
+		
+		const facilitatorIds = new Set<string>();
+		if (!facilitatorIdsError && allFacilitators) {
+			allFacilitators.forEach((f) => facilitatorIds.add(f.id));
+		}
 
 		// Get all checked-in attendees for today with their facilitator assignments
 		const { data: attendanceLogs, error: attendanceError } = await supabase
@@ -602,11 +737,12 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 			};
 		}
 
-		// Group attendees by facilitator_id
+		// Group attendees by facilitator_id, filtering out facilitator attendees
 		const attendeesByFacilitator = new Map<string, CheckedInAttendee[]>();
 		attendanceLogs?.forEach((log: any) => {
 			const attendee = log.attendees;
-			if (attendee.facilitator_id) {
+			// Skip if this attendee is a facilitator
+			if (attendee.facilitator_id && !facilitatorIds.has(attendee.id)) {
 				if (!attendeesByFacilitator.has(attendee.facilitator_id)) {
 					attendeesByFacilitator.set(attendee.facilitator_id, []);
 				}
@@ -622,7 +758,7 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 			}
 		});
 
-		// Build result array
+		// Build result array - only include checked-in facilitators
 		const result: FacilitatorWithAttendees[] = facilitatorsResponse.data.map((facilitator) => ({
 			...facilitator,
 			attendees: attendeesByFacilitator.get(facilitator.id) || [],
@@ -644,6 +780,7 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 
 /**
  * Transfer an attendee to a different facilitator
+ * Validates that the attendee is not a facilitator
  */
 export async function transferAttendee(
 	attendeeId: string,
@@ -654,6 +791,15 @@ export async function transferAttendee(
 			return {
 				success: false,
 				error: 'Invalid attendee ID.'
+			};
+		}
+
+		// Validate that the attendee is not a facilitator
+		const attendeeIsFacilitator = await isFacilitator(attendeeId);
+		if (attendeeIsFacilitator) {
+			return {
+				success: false,
+				error: 'Facilitators cannot be assigned to other facilitators.'
 			};
 		}
 
@@ -723,18 +869,29 @@ export async function transferAttendee(
 
 /**
  * Auto-assign a facilitator to an attendee based on gender (load balancing)
+ * Skips assignment if attendee is a facilitator
+ * Only uses facilitators who have checked in today
  */
 export async function assignFacilitatorToAttendee(
 	attendeeId: string,
 	gender: 'Male' | 'Female'
 ): Promise<ServiceResponse<string | null>> {
 	try {
-		// Get all facilitators for this gender
-		const facilitatorsResponse = await getFacilitatorsByGender(gender);
+		// Skip assignment if the attendee is a facilitator
+		const attendeeIsFacilitator = await isFacilitator(attendeeId);
+		if (attendeeIsFacilitator) {
+			return {
+				success: true,
+				data: null // Facilitators don't get assigned to other facilitators
+			};
+		}
+
+		// Get only checked-in facilitators for this gender
+		const facilitatorsResponse = await getCheckedInFacilitatorsByGender(gender);
 		if (!facilitatorsResponse.success || !facilitatorsResponse.data) {
 			return {
 				success: true,
-				data: null // No facilitators available for this gender
+				data: null // No checked-in facilitators available for this gender
 			};
 		}
 
@@ -742,17 +899,29 @@ export async function assignFacilitatorToAttendee(
 		if (facilitators.length === 0) {
 			return {
 				success: true,
-				data: null // No facilitators available for this gender
+				data: null // No checked-in facilitators available for this gender
 			};
 		}
 
-		// Get count of assigned attendees for each facilitator (only checked in today)
+		// Get all facilitator IDs to filter them out when counting attendees
+		const { data: allFacilitators, error: facilitatorIdsError } = await supabase
+			.from('facilitators')
+			.select('id');
+		
+		const facilitatorIds = new Set<string>();
+		if (!facilitatorIdsError && allFacilitators) {
+			allFacilitators.forEach((f) => facilitatorIds.add(f.id));
+		}
+
+		// Get count of assigned attendees for each facilitator (only checked in today, excluding facilitator attendees)
 		const today = new Date().toISOString().split('T')[0];
 		const { data: attendanceLogs, error: attendanceError } = await supabase
 			.from('attendance_log')
 			.select(
 				`
+				attendee_id,
 				attendees:attendee_id (
+					id,
 					facilitator_id
 				)
 			`
@@ -760,12 +929,14 @@ export async function assignFacilitatorToAttendee(
 			.eq('service_date', today)
 			.not('attendees.facilitator_id', 'is', null);
 
-		// Count attendees per facilitator
+		// Count attendees per facilitator (excluding facilitator attendees)
 		const facilitatorCounts = new Map<string, number>();
 		facilitators.forEach((f) => facilitatorCounts.set(f.id, 0));
 		attendanceLogs?.forEach((log: any) => {
-			const facilitatorId = log.attendees?.facilitator_id;
-			if (facilitatorId && facilitatorCounts.has(facilitatorId)) {
+			const attendee = log.attendees;
+			const facilitatorId = attendee?.facilitator_id;
+			// Only count if facilitatorId exists, is in our list, and attendee is not a facilitator
+			if (facilitatorId && facilitatorCounts.has(facilitatorId) && !facilitatorIds.has(attendee.id)) {
 				facilitatorCounts.set(facilitatorId, (facilitatorCounts.get(facilitatorId) || 0) + 1);
 			}
 		});
