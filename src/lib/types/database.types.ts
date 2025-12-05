@@ -23,6 +23,7 @@ export interface Database {
 					dgroup_leader_name: string | null;
 					is_first_timer: boolean;
 					facilitator_id: string | null;
+					default_facilitator_id: string | null;
 					created_at: string;
 				};
 				Insert: {
@@ -41,6 +42,7 @@ export interface Database {
 					dgroup_leader_name?: string | null;
 					is_first_timer?: boolean;
 					facilitator_id?: string | null;
+					default_facilitator_id?: string | null;
 					created_at?: string;
 				};
 				Update: {
@@ -59,6 +61,7 @@ export interface Database {
 					dgroup_leader_name?: string | null;
 					is_first_timer?: boolean;
 					facilitator_id?: string | null;
+					default_facilitator_id?: string | null;
 					created_at?: string;
 				};
 			};
@@ -68,18 +71,21 @@ export interface Database {
 					attendee_id: string;
 					service_date: string;
 					check_in_time: string;
+					facilitator_id: string | null;
 				};
 				Insert: {
 					id?: string;
 					attendee_id: string;
 					service_date?: string;
 					check_in_time?: string;
+					facilitator_id?: string | null;
 				};
 				Update: {
 					id?: string;
 					attendee_id?: string;
 					service_date?: string;
 					check_in_time?: string;
+					facilitator_id?: string | null;
 				};
 			};
 			facilitators: {

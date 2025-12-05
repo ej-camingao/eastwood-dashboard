@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS attendees (
     dgroup_leader_name TEXT,
     is_first_timer BOOLEAN DEFAULT FALSE NOT NULL,
     facilitator_id UUID REFERENCES facilitators(id) ON DELETE SET NULL,
+    default_facilitator_id UUID REFERENCES facilitators(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS attendance_log (
     attendee_id UUID NOT NULL REFERENCES attendees(id) ON DELETE CASCADE,
     service_date DATE NOT NULL DEFAULT current_date,
     check_in_time TIMESTAMPTZ DEFAULT now() NOT NULL,
+    facilitator_id UUID REFERENCES facilitators(id) ON DELETE SET NULL,
     UNIQUE(attendee_id, service_date)
 );
 
@@ -47,11 +49,13 @@ CREATE INDEX IF NOT EXISTS idx_attendees_last_name ON attendees(last_name);
 CREATE INDEX IF NOT EXISTS idx_attendees_contact_number ON attendees(contact_number);
 CREATE INDEX IF NOT EXISTS idx_attendees_full_name ON attendees(first_name, last_name);
 CREATE INDEX IF NOT EXISTS idx_attendees_facilitator_id ON attendees(facilitator_id);
+CREATE INDEX IF NOT EXISTS idx_attendees_default_facilitator_id ON attendees(default_facilitator_id);
 
 -- Create index for attendance_log lookups
 CREATE INDEX IF NOT EXISTS idx_attendance_log_attendee_id ON attendance_log(attendee_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_log_service_date ON attendance_log(service_date);
 CREATE INDEX IF NOT EXISTS idx_attendance_log_attendee_service ON attendance_log(attendee_id, service_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_log_facilitator_id ON attendance_log(facilitator_id);
 
 -- Add comments for documentation
 COMMENT ON TABLE facilitators IS 'Stores information about facilitators for breakout groups';
@@ -63,7 +67,9 @@ COMMENT ON COLUMN attendees.gender IS 'Gender of the attendee: Male or Female';
 COMMENT ON COLUMN attendees.is_dgroup_member IS 'Whether the attendee is a member of a DGroup';
 COMMENT ON COLUMN attendees.dgroup_leader_name IS 'Name of the DGroup leader (required if is_dgroup_member is true)';
 COMMENT ON COLUMN attendees.facilitator_id IS 'Reference to the facilitator assigned to this attendee';
+COMMENT ON COLUMN attendees.default_facilitator_id IS 'Default/preferred facilitator for this attendee (manually set in Supabase, never updated by application)';
 COMMENT ON COLUMN attendance_log.service_date IS 'Date of the service, defaults to current_date';
+COMMENT ON COLUMN attendance_log.facilitator_id IS 'Facilitator assigned to this attendee for this specific service date';
 COMMENT ON CONSTRAINT attendance_log_attendee_id_service_date_key ON attendance_log IS 'Prevents duplicate check-ins for the same attendee on the same service date';
 
 -- Row Level Security (RLS) Policies

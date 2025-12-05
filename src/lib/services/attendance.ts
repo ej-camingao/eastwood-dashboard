@@ -87,10 +87,10 @@ export async function registerNewAttendeeAndCheckIn(
 
 		// Create attendance log entry for today
 		const today = new Date().toISOString().split('T')[0];
-		const { error: attendanceError } = await supabase.from('attendance_log').insert({
+		const { data: newLog, error: attendanceError } = await supabase.from('attendance_log').insert({
 			attendee_id: attendee.id,
 			service_date: today
-		});
+		}).select().single();
 
 		if (attendanceError) {
 			console.error('Failed to create attendance log:', attendanceError);
@@ -100,8 +100,9 @@ export async function registerNewAttendeeAndCheckIn(
 			};
 		}
 
-		// Auto-assign facilitator if not already assigned
-		if (!attendee.facilitator_id) {
+		// Check if attendance_log already has a facilitator_id (manual intervention)
+		// If not, auto-assign facilitator
+		if (!newLog?.facilitator_id) {
 			await assignFacilitatorToAttendee(attendee.id, attendee.gender as 'Male' | 'Female');
 			// Fetch updated attendee data
 			const { data: updatedAttendee } = await supabase
@@ -231,10 +232,10 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 		}
 
 		// Create attendance log entry
-		const { error: attendanceError } = await supabase.from('attendance_log').insert({
+		const { data: newLog, error: attendanceError } = await supabase.from('attendance_log').insert({
 			attendee_id: attendeeId,
 			service_date: today
-		});
+		}).select().single();
 
 		if (attendanceError) {
 			// Handle duplicate check-in attempt (race condition)
@@ -265,8 +266,9 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
-		// Auto-assign facilitator if not already assigned
-		if (!attendee.facilitator_id) {
+		// Check if attendance_log already has a facilitator_id (manual intervention)
+		// If not, auto-assign facilitator
+		if (!newLog?.facilitator_id) {
 			await assignFacilitatorToAttendee(attendeeId, attendee.gender as 'Male' | 'Female');
 			// Fetch updated attendee data
 			const { data: updatedAttendee } = await supabase
@@ -613,7 +615,7 @@ export async function getFacilitatorWithAttendees(
 			allFacilitators.forEach((f) => facilitatorIds.add(f.id));
 		}
 
-		// Get checked-in attendees for today assigned to this facilitator
+		// Get checked-in attendees for today assigned to this facilitator (using attendance_log.facilitator_id)
 		const { data: attendanceLogs, error: attendanceError } = await supabase
 			.from('attendance_log')
 			.select(
@@ -621,17 +623,17 @@ export async function getFacilitatorWithAttendees(
 				id,
 				attendee_id,
 				check_in_time,
+				facilitator_id,
 				attendees:attendee_id (
 					id,
 					first_name,
 					last_name,
-					contact_number,
-					facilitator_id
+					contact_number
 				)
 			`
 			)
 			.eq('service_date', today)
-			.eq('attendees.facilitator_id', facilitatorId)
+			.eq('facilitator_id', facilitatorId)
 			.order('check_in_time', { ascending: false });
 
 		if (attendanceError) {
@@ -709,7 +711,7 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 			allFacilitators.forEach((f) => facilitatorIds.add(f.id));
 		}
 
-		// Get all checked-in attendees for today with their facilitator assignments
+		// Get all checked-in attendees for today with their facilitator assignments (using attendance_log.facilitator_id)
 		const { data: attendanceLogs, error: attendanceError } = await supabase
 			.from('attendance_log')
 			.select(
@@ -717,17 +719,17 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 				id,
 				attendee_id,
 				check_in_time,
+				facilitator_id,
 				attendees:attendee_id (
 					id,
 					first_name,
 					last_name,
-					contact_number,
-					facilitator_id
+					contact_number
 				)
 			`
 			)
 			.eq('service_date', today)
-			.not('attendees.facilitator_id', 'is', null)
+			.not('facilitator_id', 'is', null)
 			.order('check_in_time', { ascending: false });
 
 		if (attendanceError) {
@@ -741,12 +743,13 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 		const attendeesByFacilitator = new Map<string, CheckedInAttendee[]>();
 		attendanceLogs?.forEach((log: any) => {
 			const attendee = log.attendees;
-			// Skip if attendee is null or if this attendee is a facilitator
-			if (attendee && attendee.facilitator_id && !facilitatorIds.has(attendee.id)) {
-				if (!attendeesByFacilitator.has(attendee.facilitator_id)) {
-					attendeesByFacilitator.set(attendee.facilitator_id, []);
+			const facilitatorId = log.facilitator_id;
+			// Skip if attendee is null, facilitator_id is null, or if this attendee is a facilitator
+			if (attendee && facilitatorId && !facilitatorIds.has(attendee.id)) {
+				if (!attendeesByFacilitator.has(facilitatorId)) {
+					attendeesByFacilitator.set(facilitatorId, []);
 				}
-				attendeesByFacilitator.get(attendee.facilitator_id)?.push({
+				attendeesByFacilitator.get(facilitatorId)?.push({
 					attendance_log_id: log.id,
 					attendee_id: attendee.id,
 					first_name: attendee.first_name,
@@ -842,17 +845,31 @@ export async function transferAttendee(
 			}
 		}
 
-		// Update attendee's facilitator_id
+		// Update attendance_log.facilitator_id for today's service (manual intervention)
+		// This only affects the current service and does not override default_facilitator_id
+		const today = new Date().toISOString().split('T')[0];
 		const { error: updateError } = await supabase
-			.from('attendees')
+			.from('attendance_log')
 			.update({ facilitator_id: newFacilitatorId })
-			.eq('id', attendeeId);
+			.eq('attendee_id', attendeeId)
+			.eq('service_date', today);
 
 		if (updateError) {
 			return {
 				success: false,
 				error: updateError.message || 'Failed to transfer attendee.'
 			};
+		}
+
+		// Also update attendees.facilitator_id for backward compatibility
+		const { error: attendeeUpdateError } = await supabase
+			.from('attendees')
+			.update({ facilitator_id: newFacilitatorId })
+			.eq('id', attendeeId);
+
+		if (attendeeUpdateError) {
+			// Log but don't fail - attendance_log update succeeded
+			console.warn('Failed to update attendees.facilitator_id:', attendeeUpdateError);
 		}
 
 		return {
@@ -869,6 +886,7 @@ export async function transferAttendee(
 
 /**
  * Auto-assign a facilitator to an attendee based on gender (load balancing)
+ * Priority: 1) Existing assignment in attendance_log (manual intervention), 2) default_facilitator_id, 3) load balancing
  * Skips assignment if attendee is a facilitator
  * Only uses facilitators who have checked in today
  */
@@ -886,6 +904,88 @@ export async function assignFacilitatorToAttendee(
 			};
 		}
 
+		const today = new Date().toISOString().split('T')[0];
+
+		// Check if attendance_log for today already has a facilitator_id (manual intervention)
+		const { data: existingLog, error: logError } = await supabase
+			.from('attendance_log')
+			.select('facilitator_id')
+			.eq('attendee_id', attendeeId)
+			.eq('service_date', today)
+			.single();
+
+		if (!logError && existingLog?.facilitator_id) {
+			// Manual intervention already set - respect it
+			return {
+				success: true,
+				data: existingLog.facilitator_id
+			};
+		}
+
+		// Get attendee to check for default_facilitator_id
+		const { data: attendee, error: attendeeError } = await supabase
+			.from('attendees')
+			.select('default_facilitator_id')
+			.eq('id', attendeeId)
+			.single();
+
+		if (!attendeeError && attendee?.default_facilitator_id) {
+			// Check if default facilitator is checked in today and gender matches
+			const { data: defaultFacilitator, error: facilitatorError } = await supabase
+				.from('facilitators')
+				.select('gender')
+				.eq('id', attendee.default_facilitator_id)
+				.single();
+
+			if (!facilitatorError && defaultFacilitator) {
+				// Check if gender matches
+				if (defaultFacilitator.gender === gender) {
+					// Check if default facilitator is checked in today
+					const { data: facilitatorCheckIn } = await supabase
+						.from('attendance_log')
+						.select('id')
+						.eq('attendee_id', attendee.default_facilitator_id)
+						.eq('service_date', today)
+						.single();
+
+					if (facilitatorCheckIn) {
+						// Default facilitator is available - assign them
+						const selectedFacilitatorId = attendee.default_facilitator_id;
+						
+						// Update both attendance_log and attendees tables
+						const { error: logUpdateError } = await supabase
+							.from('attendance_log')
+							.update({ facilitator_id: selectedFacilitatorId })
+							.eq('attendee_id', attendeeId)
+							.eq('service_date', today);
+
+						if (logUpdateError) {
+							return {
+								success: false,
+								error: logUpdateError.message || 'Failed to assign default facilitator.'
+							};
+						}
+
+						// Also update attendees.facilitator_id for backward compatibility
+						const { error: attendeeUpdateError } = await supabase
+							.from('attendees')
+							.update({ facilitator_id: selectedFacilitatorId })
+							.eq('id', attendeeId);
+
+						if (attendeeUpdateError) {
+							console.warn('Failed to update attendees.facilitator_id:', attendeeUpdateError);
+						}
+
+						return {
+							success: true,
+							data: selectedFacilitatorId
+						};
+					}
+				}
+			}
+		}
+
+		// Fall back to load balancing
 		// Get only checked-in facilitators for this gender
 		const facilitatorsResponse = await getCheckedInFacilitatorsByGender(gender);
 		if (!facilitatorsResponse.success || !facilitatorsResponse.data) {
@@ -913,30 +1013,21 @@ export async function assignFacilitatorToAttendee(
 			allFacilitators.forEach((f) => facilitatorIds.add(f.id));
 		}
 
-		// Get count of assigned attendees for each facilitator (only checked in today, excluding facilitator attendees)
-		const today = new Date().toISOString().split('T')[0];
+		// Get count of assigned attendees for each facilitator (only checked in today, using attendance_log.facilitator_id)
 		const { data: attendanceLogs, error: attendanceError } = await supabase
 			.from('attendance_log')
-			.select(
-				`
-				attendee_id,
-				attendees:attendee_id (
-					id,
-					facilitator_id
-				)
-			`
-			)
+			.select('facilitator_id, attendee_id')
 			.eq('service_date', today)
-			.not('attendees.facilitator_id', 'is', null);
+			.not('facilitator_id', 'is', null);
 
 		// Count attendees per facilitator (excluding facilitator attendees)
 		const facilitatorCounts = new Map<string, number>();
 		facilitators.forEach((f) => facilitatorCounts.set(f.id, 0));
 		attendanceLogs?.forEach((log: any) => {
-			const attendee = log.attendees;
-			const facilitatorId = attendee?.facilitator_id;
+			const facilitatorId = log.facilitator_id;
+			const attendeeIdFromLog = log.attendee_id;
 			// Only count if facilitatorId exists, is in our list, and attendee is not a facilitator
-			if (facilitatorId && facilitatorCounts.has(facilitatorId) && !facilitatorIds.has(attendee.id)) {
+			if (facilitatorId && facilitatorCounts.has(facilitatorId) && !facilitatorIds.has(attendeeIdFromLog)) {
 				facilitatorCounts.set(facilitatorId, (facilitatorCounts.get(facilitatorId) || 0) + 1);
 			}
 		});
@@ -952,13 +1043,28 @@ export async function assignFacilitatorToAttendee(
 			}
 		});
 
-		// Assign the selected facilitator
-		const transferResponse = await transferAttendee(attendeeId, selectedFacilitatorId);
-		if (!transferResponse.success) {
+		// Update both attendance_log and attendees tables
+		const { error: logUpdateError } = await supabase
+			.from('attendance_log')
+			.update({ facilitator_id: selectedFacilitatorId })
+			.eq('attendee_id', attendeeId)
+			.eq('service_date', today);
+
+		if (logUpdateError) {
 			return {
 				success: false,
-				error: transferResponse.error || 'Failed to assign facilitator.'
+				error: logUpdateError.message || 'Failed to assign facilitator.'
 			};
+		}
+
+		// Also update attendees.facilitator_id for backward compatibility
+		const { error: attendeeUpdateError } = await supabase
+			.from('attendees')
+			.update({ facilitator_id: selectedFacilitatorId })
+			.eq('id', attendeeId);
+
+		if (attendeeUpdateError) {
+			console.warn('Failed to update attendees.facilitator_id:', attendeeUpdateError);
 		}
 
 		return {

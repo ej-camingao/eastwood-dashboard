@@ -16,6 +16,7 @@ export interface Attendee {
 	dgroup_leader_name: string | null;
 	is_first_timer: boolean;
 	facilitator_id: string | null;
+	default_facilitator_id: string | null;
 	created_at: string; // ISO timestamp
 }
 
@@ -39,6 +40,7 @@ export interface AttendanceLog {
 	attendee_id: string;
 	service_date: string; // ISO date string
 	check_in_time: string; // ISO timestamp
+	facilitator_id: string | null;
 }
 
 export interface SearchResult {
