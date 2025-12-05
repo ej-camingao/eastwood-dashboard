@@ -646,8 +646,8 @@ export async function getFacilitatorWithAttendees(
 			attendanceLogs
 				?.filter((log: any) => {
 					const attendee = log.attendees;
-					// Exclude attendees who are facilitators
-					return !facilitatorIds.has(attendee.id);
+					// Exclude null attendees and attendees who are facilitators
+					return attendee && !facilitatorIds.has(attendee.id);
 				})
 				.map((log: any) => {
 					const attendee = log.attendees;
@@ -741,8 +741,8 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 		const attendeesByFacilitator = new Map<string, CheckedInAttendee[]>();
 		attendanceLogs?.forEach((log: any) => {
 			const attendee = log.attendees;
-			// Skip if this attendee is a facilitator
-			if (attendee.facilitator_id && !facilitatorIds.has(attendee.id)) {
+			// Skip if attendee is null or if this attendee is a facilitator
+			if (attendee && attendee.facilitator_id && !facilitatorIds.has(attendee.id)) {
 				if (!attendeesByFacilitator.has(attendee.facilitator_id)) {
 					attendeesByFacilitator.set(attendee.facilitator_id, []);
 				}
