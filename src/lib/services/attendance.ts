@@ -4,8 +4,11 @@ import type {
 	AttendeeRegistrationData,
 	ServiceResponse,
 	SearchResult,
-	CheckedInAttendee
+	CheckedInAttendee,
+	Facilitator,
+	FacilitatorWithAttendees
 } from '$lib/types/attendance';
+import { validateRegistrationForm } from '$lib/utils/validation';
 
 /**
  * Register a new attendee and immediately check them in for today's service
@@ -14,20 +17,12 @@ export async function registerNewAttendeeAndCheckIn(
 	data: AttendeeRegistrationData
 ): Promise<ServiceResponse<Attendee>> {
 	try {
-		// Validate required fields
-		if (!data.first_name || !data.last_name || !data.contact_number || !data.school_name || !data.barangay || !data.city || !data.gender) {
+		// Validate using shared validation utility
+		const validation = validateRegistrationForm(data);
+		if (!validation.isValid) {
 			return {
 				success: false,
-				error: 'Please fill in all required fields.'
-			};
-		}
-
-		// Validate contact number format (Philippine format: +639xxxxxxxxx)
-		const contactRegex = /^\+639\d{9}$/;
-		if (!contactRegex.test(data.contact_number)) {
-			return {
-				success: false,
-				error: 'Contact number must be in format +639xxxxxxxxx (e.g., +639123456789)'
+				error: validation.error || 'Please fill in all required fields.'
 			};
 		}
 
@@ -103,6 +98,23 @@ export async function registerNewAttendeeAndCheckIn(
 				success: false,
 				error: `Attendee registered but check-in failed: ${attendanceError.message || 'Unknown error'}`
 			};
+		}
+
+		// Auto-assign facilitator if not already assigned
+		if (!attendee.facilitator_id) {
+			await assignFacilitatorToAttendee(attendee.id, attendee.gender as 'Male' | 'Female');
+			// Fetch updated attendee data
+			const { data: updatedAttendee } = await supabase
+				.from('attendees')
+				.select('*')
+				.eq('id', attendee.id)
+				.single();
+			if (updatedAttendee) {
+				return {
+					success: true,
+					data: updatedAttendee
+				};
+			}
 		}
 
 		return {
@@ -238,7 +250,7 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
-		// Fetch the attendee data to return
+		// Fetch the attendee data to check if facilitator needs to be assigned
 		const { data: attendee, error: attendeeError } = await supabase
 			.from('attendees')
 			.select('*')
@@ -251,6 +263,23 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 				success: true,
 				error: 'Checked in successfully, but could not retrieve attendee information.'
 			};
+		}
+
+		// Auto-assign facilitator if not already assigned
+		if (!attendee.facilitator_id) {
+			await assignFacilitatorToAttendee(attendeeId, attendee.gender as 'Male' | 'Female');
+			// Fetch updated attendee data
+			const { data: updatedAttendee } = await supabase
+				.from('attendees')
+				.select('*')
+				.eq('id', attendeeId)
+				.single();
+			if (updatedAttendee) {
+				return {
+					success: true,
+					data: updatedAttendee
+				};
+			}
 		}
 
 		return {
@@ -375,6 +404,398 @@ export async function removeCheckIn(attendanceLogId: string): Promise<ServiceRes
 		};
 	} catch (error) {
 		console.error('Error in removeCheckIn:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Get all facilitators
+ */
+export async function getFacilitators(): Promise<ServiceResponse<Facilitator[]>> {
+	try {
+		const { data, error } = await supabase
+			.from('facilitators')
+			.select('*')
+			.order('first_name', { ascending: true });
+
+		if (error) {
+			return {
+				success: false,
+				error: error.message || 'Failed to fetch facilitators.'
+			};
+		}
+
+		return {
+			success: true,
+			data: data || []
+		};
+	} catch (error) {
+		console.error('Error in getFacilitators:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Get facilitators filtered by gender
+ */
+export async function getFacilitatorsByGender(
+	gender: 'Male' | 'Female'
+): Promise<ServiceResponse<Facilitator[]>> {
+	try {
+		const { data, error } = await supabase
+			.from('facilitators')
+			.select('*')
+			.eq('gender', gender)
+			.order('first_name', { ascending: true });
+
+		if (error) {
+			return {
+				success: false,
+				error: error.message || 'Failed to fetch facilitators.'
+			};
+		}
+
+		return {
+			success: true,
+			data: data || []
+		};
+	} catch (error) {
+		console.error('Error in getFacilitatorsByGender:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Get a facilitator with their assigned attendees (checked in today)
+ */
+export async function getFacilitatorWithAttendees(
+	facilitatorId: string
+): Promise<ServiceResponse<FacilitatorWithAttendees>> {
+	try {
+		const today = new Date().toISOString().split('T')[0];
+
+		// Get facilitator info
+		const { data: facilitator, error: facilitatorError } = await supabase
+			.from('facilitators')
+			.select('*')
+			.eq('id', facilitatorId)
+			.single();
+
+		if (facilitatorError || !facilitator) {
+			return {
+				success: false,
+				error: facilitatorError?.message || 'Facilitator not found.'
+			};
+		}
+
+		// Get checked-in attendees for today assigned to this facilitator
+		const { data: attendanceLogs, error: attendanceError } = await supabase
+			.from('attendance_log')
+			.select(
+				`
+				id,
+				attendee_id,
+				check_in_time,
+				attendees:attendee_id (
+					id,
+					first_name,
+					last_name,
+					contact_number,
+					facilitator_id
+				)
+			`
+			)
+			.eq('service_date', today)
+			.eq('attendees.facilitator_id', facilitatorId)
+			.order('check_in_time', { ascending: false });
+
+		if (attendanceError) {
+			return {
+				success: false,
+				error: attendanceError.message || 'Failed to fetch attendees.'
+			};
+		}
+
+		// Transform the data
+		const attendees: CheckedInAttendee[] =
+			attendanceLogs?.map((log: any) => {
+				const attendee = log.attendees;
+				return {
+					attendance_log_id: log.id,
+					attendee_id: attendee.id,
+					first_name: attendee.first_name,
+					last_name: attendee.last_name,
+					contact_number: attendee.contact_number,
+					full_name: `${attendee.first_name} ${attendee.last_name}`,
+					check_in_time: log.check_in_time
+				};
+			}) || [];
+
+		return {
+			success: true,
+			data: {
+				...facilitator,
+				attendees,
+				attendee_count: attendees.length
+			}
+		};
+	} catch (error) {
+		console.error('Error in getFacilitatorWithAttendees:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Get all facilitators with their assigned attendees (checked in today)
+ */
+export async function getAllFacilitatorsWithAttendees(): Promise<
+	ServiceResponse<FacilitatorWithAttendees[]>
+> {
+	try {
+		const facilitatorsResponse = await getFacilitators();
+		if (!facilitatorsResponse.success || !facilitatorsResponse.data) {
+			return {
+				success: false,
+				error: facilitatorsResponse.error || 'Failed to fetch facilitators.'
+			};
+		}
+
+		const today = new Date().toISOString().split('T')[0];
+
+		// Get all checked-in attendees for today with their facilitator assignments
+		const { data: attendanceLogs, error: attendanceError } = await supabase
+			.from('attendance_log')
+			.select(
+				`
+				id,
+				attendee_id,
+				check_in_time,
+				attendees:attendee_id (
+					id,
+					first_name,
+					last_name,
+					contact_number,
+					facilitator_id
+				)
+			`
+			)
+			.eq('service_date', today)
+			.not('attendees.facilitator_id', 'is', null)
+			.order('check_in_time', { ascending: false });
+
+		if (attendanceError) {
+			return {
+				success: false,
+				error: attendanceError.message || 'Failed to fetch attendees.'
+			};
+		}
+
+		// Group attendees by facilitator_id
+		const attendeesByFacilitator = new Map<string, CheckedInAttendee[]>();
+		attendanceLogs?.forEach((log: any) => {
+			const attendee = log.attendees;
+			if (attendee.facilitator_id) {
+				if (!attendeesByFacilitator.has(attendee.facilitator_id)) {
+					attendeesByFacilitator.set(attendee.facilitator_id, []);
+				}
+				attendeesByFacilitator.get(attendee.facilitator_id)?.push({
+					attendance_log_id: log.id,
+					attendee_id: attendee.id,
+					first_name: attendee.first_name,
+					last_name: attendee.last_name,
+					contact_number: attendee.contact_number,
+					full_name: `${attendee.first_name} ${attendee.last_name}`,
+					check_in_time: log.check_in_time
+				});
+			}
+		});
+
+		// Build result array
+		const result: FacilitatorWithAttendees[] = facilitatorsResponse.data.map((facilitator) => ({
+			...facilitator,
+			attendees: attendeesByFacilitator.get(facilitator.id) || [],
+			attendee_count: attendeesByFacilitator.get(facilitator.id)?.length || 0
+		}));
+
+		return {
+			success: true,
+			data: result
+		};
+	} catch (error) {
+		console.error('Error in getAllFacilitatorsWithAttendees:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Transfer an attendee to a different facilitator
+ */
+export async function transferAttendee(
+	attendeeId: string,
+	newFacilitatorId: string | null
+): Promise<ServiceResponse<void>> {
+	try {
+		if (!attendeeId) {
+			return {
+				success: false,
+				error: 'Invalid attendee ID.'
+			};
+		}
+
+		// If newFacilitatorId is provided, validate gender match
+		if (newFacilitatorId) {
+			// Get attendee
+			const { data: attendee, error: attendeeError } = await supabase
+				.from('attendees')
+				.select('gender')
+				.eq('id', attendeeId)
+				.single();
+
+			if (attendeeError || !attendee) {
+				return {
+					success: false,
+					error: 'Attendee not found.'
+				};
+			}
+
+			// Get facilitator
+			const { data: facilitator, error: facilitatorError } = await supabase
+				.from('facilitators')
+				.select('gender')
+				.eq('id', newFacilitatorId)
+				.single();
+
+			if (facilitatorError || !facilitator) {
+				return {
+					success: false,
+					error: 'Facilitator not found.'
+				};
+			}
+
+			// Validate gender match
+			if (attendee.gender !== facilitator.gender) {
+				return {
+					success: false,
+					error: 'Cannot assign attendee to facilitator of different gender.'
+				};
+			}
+		}
+
+		// Update attendee's facilitator_id
+		const { error: updateError } = await supabase
+			.from('attendees')
+			.update({ facilitator_id: newFacilitatorId })
+			.eq('id', attendeeId);
+
+		if (updateError) {
+			return {
+				success: false,
+				error: updateError.message || 'Failed to transfer attendee.'
+			};
+		}
+
+		return {
+			success: true
+		};
+	} catch (error) {
+		console.error('Error in transferAttendee:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Auto-assign a facilitator to an attendee based on gender (load balancing)
+ */
+export async function assignFacilitatorToAttendee(
+	attendeeId: string,
+	gender: 'Male' | 'Female'
+): Promise<ServiceResponse<string | null>> {
+	try {
+		// Get all facilitators for this gender
+		const facilitatorsResponse = await getFacilitatorsByGender(gender);
+		if (!facilitatorsResponse.success || !facilitatorsResponse.data) {
+			return {
+				success: true,
+				data: null // No facilitators available for this gender
+			};
+		}
+
+		const facilitators = facilitatorsResponse.data;
+		if (facilitators.length === 0) {
+			return {
+				success: true,
+				data: null // No facilitators available for this gender
+			};
+		}
+
+		// Get count of assigned attendees for each facilitator (only checked in today)
+		const today = new Date().toISOString().split('T')[0];
+		const { data: attendanceLogs, error: attendanceError } = await supabase
+			.from('attendance_log')
+			.select(
+				`
+				attendees:attendee_id (
+					facilitator_id
+				)
+			`
+			)
+			.eq('service_date', today)
+			.not('attendees.facilitator_id', 'is', null);
+
+		// Count attendees per facilitator
+		const facilitatorCounts = new Map<string, number>();
+		facilitators.forEach((f) => facilitatorCounts.set(f.id, 0));
+		attendanceLogs?.forEach((log: any) => {
+			const facilitatorId = log.attendees?.facilitator_id;
+			if (facilitatorId && facilitatorCounts.has(facilitatorId)) {
+				facilitatorCounts.set(facilitatorId, (facilitatorCounts.get(facilitatorId) || 0) + 1);
+			}
+		});
+
+		// Find facilitator with fewest attendees
+		let selectedFacilitatorId = facilitators[0].id;
+		let minCount = facilitatorCounts.get(selectedFacilitatorId) || 0;
+
+		facilitatorCounts.forEach((count, facilitatorId) => {
+			if (count < minCount) {
+				minCount = count;
+				selectedFacilitatorId = facilitatorId;
+			}
+		});
+
+		// Assign the selected facilitator
+		const transferResponse = await transferAttendee(attendeeId, selectedFacilitatorId);
+		if (!transferResponse.success) {
+			return {
+				success: false,
+				error: transferResponse.error || 'Failed to assign facilitator.'
+			};
+		}
+
+		return {
+			success: true,
+			data: selectedFacilitatorId
+		};
+	} catch (error) {
+		console.error('Error in assignFacilitatorToAttendee:', error);
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : 'An unexpected error occurred.'

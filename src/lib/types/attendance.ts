@@ -15,6 +15,7 @@ export interface Attendee {
 	is_dgroup_member: boolean;
 	dgroup_leader_name: string | null;
 	is_first_timer: boolean;
+	facilitator_id: string | null;
 	created_at: string; // ISO timestamp
 }
 
@@ -56,6 +57,19 @@ export interface CheckedInAttendee {
 	contact_number: string;
 	full_name: string; // Computed: first_name + ' ' + last_name
 	check_in_time: string; // ISO timestamp
+}
+
+export interface Facilitator {
+	id: string;
+	first_name: string;
+	last_name: string;
+	gender: 'Male' | 'Female';
+	created_at: string; // ISO timestamp
+}
+
+export interface FacilitatorWithAttendees extends Facilitator {
+	attendees: CheckedInAttendee[];
+	attendee_count: number;
 }
 
 export interface ServiceResponse<T = unknown> {
