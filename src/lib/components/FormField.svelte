@@ -13,15 +13,15 @@
 </script>
 
 <div>
-	<label for={id} class="block text-sm font-medium text-gray-700 mb-1">
-		{label} {#if required}<span class="text-red-500">*</span>{/if}
+	<label for={id} class="block text-base font-semibold text-gray-900 mb-2">
+		{label} {#if required}<span class="text-red-600 font-bold ml-1">*</span>{/if}
 	</label>
 	{@render children()}
 	{#if helpText}
-		<p class="mt-1 text-sm text-gray-500">{helpText}</p>
+		<p class="mt-2 text-sm text-gray-600">{helpText}</p>
 	{/if}
 	{#if error}
-		<p class="mt-1 text-sm text-red-600" role="alert">{error}</p>
+		<p class="mt-2 text-sm font-medium text-red-600" role="alert">{error}</p>
 	{/if}
 </div>
 

@@ -38,15 +38,15 @@
 </script>
 
 <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
-	<h2 class="text-2xl font-semibold text-gray-900 mb-6">Returning User Check-In</h2>
+	<h2 class="text-3xl font-bold text-gray-900 mb-8">Returning User Check-In</h2>
 
 	<!-- Search & Check-In Section -->
 	<div class="mb-8">
-		<h3 class="text-lg font-semibold text-gray-900 mb-4">Search & Check-In</h3>
+		<h3 class="text-xl font-bold text-gray-900 mb-4">Search & Check-In</h3>
 
 		<!-- Search Input -->
 		<div class="mb-6">
-			<label for="search" class="block text-sm font-medium text-gray-700 mb-2">
+			<label for="search" class="block text-base font-semibold text-gray-900 mb-2">
 				Search by Name or Contact Number
 			</label>
 			<SearchInput
@@ -56,14 +56,14 @@
 				disabled={isSubmitting}
 			/>
 			{#if searchQuery && searchQuery.length < 2}
-				<p class="mt-1 text-sm text-gray-500">Type at least 2 characters to search</p>
+				<p class="mt-2 text-sm text-gray-600">Type at least 2 characters to search</p>
 			{/if}
 		</div>
 
 		<!-- Search Results -->
 		{#if hasSearchResults}
 			<div class="space-y-2">
-				<p class="text-sm font-medium text-gray-700 mb-3">
+				<p class="text-base font-semibold text-gray-900 mb-3">
 					Found {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}:
 				</p>
 				{#each searchResults as result (result.id)}

@@ -60,6 +60,13 @@
 	let successMessage = $state('');
 	let errorMessage = $state('');
 
+	// Password protection for facilitators tab
+	const FACILITATOR_PASSWORD = 'Matt281920';
+	let facilitatorPasswordInput = $state('');
+	let isPasswordAuthenticated = $state(false);
+	let showPasswordModal = $state(false);
+	let passwordError = $state('');
+
 	// Computed values using $derived
 	const hasSearchResults = $derived(searchResults.length > 0);
 	const showNoResults = $derived(
@@ -115,8 +122,20 @@
 		successMessage = '';
 		errorMessage = '';
 
+		// Prepend +63 to contact number if not already present
+		const contactNumber = registrationForm.contact_number.trim();
+		const formattedContactNumber = contactNumber.startsWith('+63')
+			? contactNumber
+			: `+63${contactNumber}`;
+
+		// Create form data with formatted contact number for validation
+		const formDataForValidation = {
+			...registrationForm,
+			contact_number: formattedContactNumber
+		};
+
 		// Client-side validation using shared utility
-		const validation = validateRegistrationForm(registrationForm);
+		const validation = validateRegistrationForm(formDataForValidation);
 		if (!validation.isValid) {
 			showError(validation.error || 'Please fill in all required fields.');
 			return;
@@ -125,7 +144,11 @@
 		isSubmitting = true;
 
 		try {
-			const response = await registerNewAttendeeAndCheckIn(registrationForm);
+			// Submit with formatted contact number
+			const response = await registerNewAttendeeAndCheckIn({
+				...registrationForm,
+				contact_number: formattedContactNumber
+			});
 
 			if (response.success) {
 				showSuccess('Welcome to Elevate! You are checked in.');
@@ -272,8 +295,46 @@
 		await loadFacilitators();
 	}
 
+	// Password handling functions
+	function handlePasswordSubmit() {
+		if (facilitatorPasswordInput === FACILITATOR_PASSWORD) {
+			isPasswordAuthenticated = true;
+			showPasswordModal = false;
+			facilitatorPasswordInput = '';
+			passwordError = '';
+			// Switch to facilitators tab
+			activePath = 'facilitators';
+			errorMessage = '';
+			successMessage = '';
+		} else {
+			passwordError = 'Incorrect password. Please try again.';
+			facilitatorPasswordInput = '';
+		}
+	}
+
+	function closePasswordModal() {
+		showPasswordModal = false;
+		facilitatorPasswordInput = '';
+		passwordError = '';
+		// If closing without authentication, don't switch tabs
+		if (!isPasswordAuthenticated) {
+			// Stay on current tab or switch to 'new'
+			if (activePath === 'facilitators') {
+				activePath = 'new';
+			}
+		}
+	}
+
 	// Handle tab switching
 	function handleTabSwitch(path: 'new' | 'returning' | 'facilitators') {
+		// Check password if switching to facilitators tab
+		if (path === 'facilitators' && !isPasswordAuthenticated) {
+			showPasswordModal = true;
+			passwordError = '';
+			facilitatorPasswordInput = '';
+			return; // Don't switch yet, wait for password
+		}
+
 		activePath = path;
 		errorMessage = '';
 		successMessage = '';
@@ -296,9 +357,9 @@
 <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-7xl mx-auto">
 		<!-- Header -->
-		<div class="text-center mb-8">
-			<h1 class="text-4xl font-bold text-gray-900 mb-2">Elevate Saturday Service</h1>
-			<p class="text-lg text-gray-600">Registration & Check-In</p>
+		<div class="text-center mb-10">
+			<h1 class="text-5xl font-bold text-gray-900 mb-3">Elevate Saturday Service</h1>
+			<p class="text-xl text-gray-700 font-medium">Registration & Check-In</p>
 		</div>
 
 		<!-- Path Toggle -->
@@ -358,7 +419,7 @@
 		{/if}
 
 		<!-- Path 3: Facilitators -->
-		{#if activePath === 'facilitators'}
+		{#if activePath === 'facilitators' && isPasswordAuthenticated}
 			<FacilitatorTab
 				{facilitators}
 				{availableFacilitators}
@@ -369,4 +430,66 @@
 			/>
 		{/if}
 	</div>
+
+	<!-- Password Modal -->
+	{#if showPasswordModal}
+		<div
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+			onclick={closePasswordModal}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="password-modal-title"
+		>
+			<div
+				class="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+				onclick={(e) => e.stopPropagation()}
+			>
+				<h3 id="password-modal-title" class="text-lg font-semibold text-gray-900 mb-4">
+					Enter Password to Access Facilitators
+				</h3>
+
+				{#if passwordError}
+					<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+						<p class="text-sm text-red-600">{passwordError}</p>
+					</div>
+				{/if}
+
+				<div class="mb-4">
+					<label for="password-input" class="block text-sm font-medium text-gray-700 mb-2">
+						Password
+					</label>
+					<input
+						type="password"
+						id="password-input"
+						bind:value={facilitatorPasswordInput}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								handlePasswordSubmit();
+							}
+						}}
+						class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+						placeholder="Enter password"
+						autofocus
+					/>
+				</div>
+
+				<div class="flex justify-end gap-3">
+					<button
+						type="button"
+						onclick={closePasswordModal}
+						class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handlePasswordSubmit}
+						class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+					>
+						Submit
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>

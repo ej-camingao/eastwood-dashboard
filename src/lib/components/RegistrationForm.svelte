@@ -21,7 +21,7 @@
 </script>
 
 <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
-	<h2 class="text-2xl font-semibold text-gray-900 mb-6">New Attendee Registration</h2>
+	<h2 class="text-3xl font-bold text-gray-900 mb-8">New Attendee Registration</h2>
 
 	<form onsubmit={handleSubmit} class="space-y-6">
 		<!-- Name Fields -->
@@ -34,7 +34,7 @@
 					oninput={(e) => onUpdate({ first_name: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 					placeholder="John"
 				/>
 			</FormField>
@@ -46,7 +46,7 @@
 					oninput={(e) => onUpdate({ last_name: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 					placeholder="Doe"
 				/>
 			</FormField>
@@ -60,7 +60,7 @@
 				onchange={(e) => onUpdate({ gender: e.currentTarget.value as 'Male' | 'Female' })}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 			>
 				<option value="Male">Male</option>
 				<option value="Female">Female</option>
@@ -68,42 +68,55 @@
 		</FormField>
 
 		<!-- Contact Number -->
-		<FormField id="contact_number" label="Contact Number" required helpText="Format: +639xxxxxxxxx">
-			<input
-				type="tel"
-				id="contact_number"
-				value={formData.contact_number}
-				oninput={(e) => onUpdate({ contact_number: e.currentTarget.value })}
-				required
-				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-				placeholder="+639123456789"
-			/>
+		<FormField id="contact_number" label="Contact Number" required helpText="Enter your 10-digit mobile number (e.g., 9123456789)">
+			<div class="flex">
+				<span
+					class="inline-flex items-center px-4 py-3 rounded-l-lg border-2 border-r-0 border-gray-300 bg-gray-50 text-gray-900 text-base font-semibold"
+				>
+					+63
+				</span>
+				<input
+					type="tel"
+					id="contact_number"
+					value={formData.contact_number.replace(/^\+63/, '')}
+					oninput={(e) => {
+						// Only allow digits, max 10 characters (9xxxxxxxxx format)
+						const value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+						onUpdate({ contact_number: value });
+					}}
+					required
+					disabled={isSubmitting}
+					class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+					placeholder="9123456789"
+					maxlength="10"
+				/>
+			</div>
 		</FormField>
 
 		<!-- Email -->
-		<FormField id="email" label="Email Address">
+		<FormField id="email" label="Email Address" helpText="Optional">
 			<input
 				type="email"
 				id="email"
 				value={formData.email || ''}
 				oninput={(e) => onUpdate({ email: e.currentTarget.value })}
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 				placeholder="john.doe@example.com"
 			/>
 		</FormField>
 
 		<!-- Birthday -->
-		<FormField id="birthday" label="Birthday">
+		<FormField id="birthday" label="Birthday" required>
 			<input
 				type="date"
 				id="birthday"
 				value={formData.birthday || ''}
 				oninput={(e) => onUpdate({ birthday: e.currentTarget.value })}
 				max={todayDate}
+				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 			/>
 		</FormField>
 
@@ -116,7 +129,7 @@
 				oninput={(e) => onUpdate({ school_name: e.currentTarget.value })}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 				placeholder="Your School Name"
 			/>
 		</FormField>
@@ -131,7 +144,7 @@
 					oninput={(e) => onUpdate({ barangay: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 					placeholder="Barangay Name"
 				/>
 			</FormField>
@@ -143,7 +156,7 @@
 					oninput={(e) => onUpdate({ city: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 					placeholder="City Name"
 				/>
 			</FormField>
@@ -157,7 +170,7 @@
 				value={formData.social_media_name || ''}
 				oninput={(e) => onUpdate({ social_media_name: e.currentTarget.value })}
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 				placeholder="Facebook/Messenger Handle"
 			/>
 		</FormField>
@@ -170,7 +183,7 @@
 				onchange={(e) => onUpdate({ is_dgroup_member: e.currentTarget.value === 'true' })}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 			>
 				<option value="false">No</option>
 				<option value="true">Yes</option>
@@ -185,7 +198,7 @@
 				value={formData.dgroup_leader_name || ''}
 				oninput={(e) => onUpdate({ dgroup_leader_name: e.currentTarget.value })}
 				disabled={isSubmitting}
-				class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
 				placeholder="DGroup Leader Name (optional)"
 			/>
 		</FormField>

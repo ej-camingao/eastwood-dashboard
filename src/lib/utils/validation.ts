@@ -1,4 +1,4 @@
-import { CONTACT_NUMBER_REGEX, EMAIL_REGEX, CONTACT_NUMBER_FORMAT, CONTACT_NUMBER_EXAMPLE } from './constants';
+import { EMAIL_REGEX } from './constants';
 import type { AttendeeRegistrationData } from '$lib/types/attendance';
 
 /**
@@ -10,20 +10,13 @@ export interface ValidationResult {
 }
 
 /**
- * Validate contact number format (Philippine format: +639xxxxxxxxx)
+ * Validate contact number (only checks if required, no format validation)
  */
 export function validateContactNumber(contactNumber: string): ValidationResult {
 	if (!contactNumber || !contactNumber.trim()) {
 		return {
 			isValid: false,
 			error: 'Contact number is required.'
-		};
-	}
-
-	if (!CONTACT_NUMBER_REGEX.test(contactNumber.trim())) {
-		return {
-			isValid: false,
-			error: `Contact number must be in format ${CONTACT_NUMBER_FORMAT} (e.g., ${CONTACT_NUMBER_EXAMPLE})`
 		};
 	}
 
@@ -60,6 +53,9 @@ export function validateRequiredFields(data: AttendeeRegistrationData): Validati
 	}
 	if (!data.contact_number?.trim()) {
 		return { isValid: false, error: 'Contact number is required.' };
+	}
+	if (!data.birthday?.trim()) {
+		return { isValid: false, error: 'Birthday is required.' };
 	}
 	if (!data.school_name?.trim()) {
 		return { isValid: false, error: 'School name is required.' };
