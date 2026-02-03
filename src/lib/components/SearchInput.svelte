@@ -24,10 +24,10 @@
 		{disabled}
 		{placeholder}
 		autocomplete="off"
-		class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+		class="w-full px-4 py-4 pl-12 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 text-lg font-medium placeholder-gray-400 shadow-sm hover:shadow-md"
 	/>
 	<svg
-		class="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
+		class="absolute left-4 top-4.5 h-6 w-6 text-gray-400"
 		fill="none"
 		stroke="currentColor"
 		viewBox="0 0 24 24"
@@ -42,9 +42,9 @@
 		></path>
 	</svg>
 	{#if isSearching}
-		<div class="absolute right-3 top-3.5" aria-label="Searching">
+		<div class="absolute right-4 top-4.5" aria-label="Searching">
 			<svg
-				class="animate-spin h-5 w-5 text-indigo-600"
+				class="animate-spin h-6 w-6 text-red-500"
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
 				viewBox="0 0 24 24"

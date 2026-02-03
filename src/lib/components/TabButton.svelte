@@ -10,9 +10,9 @@
 
 <button
 	type="button"
-	class="px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 {isActive
-		? 'bg-indigo-600 text-white shadow-sm'
-		: 'text-gray-700 hover:text-gray-900'}"
+	class="px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-300 transform {isActive
+		? 'bg-brand-gradient text-white shadow-brand scale-105'
+		: 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 	onclick={onClick}
 	aria-pressed={isActive}
 >

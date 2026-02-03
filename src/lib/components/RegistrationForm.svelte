@@ -20,12 +20,15 @@
 	}
 </script>
 
-<div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
-	<h2 class="text-3xl font-bold text-gray-900 mb-8">New Attendee Registration</h2>
+<div class="glass rounded-2xl shadow-brand-lg p-8 animate-slide-in-up">
+	<div class="text-center mb-8">
+		<h2 class="text-3xl font-bold text-gray-900 mb-2">New Attendee Registration</h2>
+		<div class="w-16 h-1 bg-brand-gradient mx-auto rounded-full"></div>
+	</div>
 
 	<form onsubmit={handleSubmit} class="space-y-6">
 		<!-- Name Fields -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 			<FormField id="first_name" label="First Name" required>
 				<input
 					type="text"
@@ -34,7 +37,7 @@
 					oninput={(e) => onUpdate({ first_name: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+					class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 					placeholder="John"
 				/>
 			</FormField>
@@ -46,7 +49,7 @@
 					oninput={(e) => onUpdate({ last_name: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+					class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 					placeholder="Doe"
 				/>
 			</FormField>
@@ -60,7 +63,7 @@
 				onchange={(e) => onUpdate({ gender: e.currentTarget.value as 'Male' | 'Female' })}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 			>
 				<option value="Male">Male</option>
 				<option value="Female">Female</option>
@@ -71,7 +74,7 @@
 		<FormField id="contact_number" label="Contact Number" required helpText="Enter your 10-digit mobile number (e.g., 9123456789)">
 			<div class="flex">
 				<span
-					class="inline-flex items-center px-4 py-3 rounded-l-lg border-2 border-r-0 border-gray-300 bg-gray-50 text-gray-900 text-base font-semibold"
+					class="inline-flex items-center px-4 py-4 rounded-l-xl border-2 border-r-0 border-gray-200 bg-gray-50 text-gray-900 text-base font-bold"
 				>
 					+63
 				</span>
@@ -86,7 +89,7 @@
 					}}
 					required
 					disabled={isSubmitting}
-					class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+					class="flex-1 px-4 py-4 border-2 border-gray-200 rounded-r-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 					placeholder="9123456789"
 					maxlength="10"
 				/>
@@ -101,7 +104,7 @@
 				value={formData.email || ''}
 				oninput={(e) => onUpdate({ email: e.currentTarget.value })}
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 				placeholder="john.doe@example.com"
 			/>
 		</FormField>
@@ -116,7 +119,7 @@
 				max={todayDate}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 			/>
 		</FormField>
 
@@ -129,13 +132,13 @@
 				oninput={(e) => onUpdate({ school_name: e.currentTarget.value })}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 				placeholder="Your School Name"
 			/>
 		</FormField>
 
 		<!-- Location Fields -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 			<FormField id="barangay" label="Barangay" required>
 				<input
 					type="text"
@@ -144,7 +147,7 @@
 					oninput={(e) => onUpdate({ barangay: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+					class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 					placeholder="Barangay Name"
 				/>
 			</FormField>
@@ -156,7 +159,7 @@
 					oninput={(e) => onUpdate({ city: e.currentTarget.value })}
 					required
 					disabled={isSubmitting}
-					class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+					class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 					placeholder="City Name"
 				/>
 			</FormField>
@@ -170,7 +173,7 @@
 				value={formData.social_media_name || ''}
 				oninput={(e) => onUpdate({ social_media_name: e.currentTarget.value })}
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 				placeholder="Facebook/Messenger Handle"
 			/>
 		</FormField>
@@ -183,7 +186,7 @@
 				onchange={(e) => onUpdate({ is_dgroup_member: e.currentTarget.value === 'true' })}
 				required
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 			>
 				<option value="false">No</option>
 				<option value="true">Yes</option>
@@ -198,7 +201,7 @@
 				value={formData.dgroup_leader_name || ''}
 				oninput={(e) => onUpdate({ dgroup_leader_name: e.currentTarget.value })}
 				disabled={isSubmitting}
-				class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 				placeholder="DGroup Leader Name (optional)"
 			/>
 		</FormField>
@@ -207,11 +210,11 @@
 		<button
 			type="submit"
 			disabled={isSubmitting}
-			class="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
+			class="w-full bg-brand-gradient text-white py-4 px-8 rounded-xl font-bold text-lg hover:shadow-brand-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center"
 		>
 			{#if isSubmitting}
 				<svg
-					class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+					class="animate-spin -ml-1 mr-3 h-6 w-6 text-white"
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"
 					viewBox="0 0 24 24"

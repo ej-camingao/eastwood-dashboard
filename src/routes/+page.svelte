@@ -21,6 +21,7 @@
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
 	import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
 	import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 	import { validateRegistrationForm } from '$lib/utils/validation';
 
 	// Form state for first-time registration
@@ -354,17 +355,20 @@
 	});
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-7xl mx-auto">
-		<!-- Header -->
-		<div class="text-center mb-10">
-			<h1 class="text-5xl font-bold text-gray-900 mb-3">Elevate Saturday Service</h1>
-			<p class="text-xl text-gray-700 font-medium">Registration & Check-In</p>
+		<!-- Header with Logo -->
+		<div class="text-center mb-12 animate-slide-in-up">
+			<div class="flex justify-center mb-6">
+				<Logo size="xl" />
+			</div>
+			<p class="text-xl text-gray-600 font-medium">Registration & Check-In System</p>
+			<div class="mt-4 w-24 h-1 bg-brand-gradient mx-auto rounded-full"></div>
 		</div>
 
-		<!-- Path Toggle -->
-		<div class="flex justify-center mb-8">
-			<div class="inline-flex rounded-lg bg-white p-1 shadow-md">
+		<!-- Enhanced Tab Navigation -->
+		<div class="flex justify-center mb-10">
+			<div class="inline-flex rounded-xl bg-white p-1.5 shadow-brand glass">
 				<TabButton
 					label="First-Time Registration"
 					isActive={activePath === 'new'}
@@ -434,28 +438,36 @@
 	<!-- Password Modal -->
 	{#if showPasswordModal}
 		<div
-			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+			class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
 			onclick={closePasswordModal}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="password-modal-title"
 		>
 			<div
-				class="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+				class="glass rounded-2xl shadow-brand-lg max-w-md w-full p-8 animate-slide-in-up"
 				onclick={(e) => e.stopPropagation()}
 			>
-				<h3 id="password-modal-title" class="text-lg font-semibold text-gray-900 mb-4">
-					Enter Password to Access Facilitators
-				</h3>
+				<div class="text-center mb-6">
+					<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+						<svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+						</svg>
+					</div>
+					<h3 id="password-modal-title" class="text-xl font-bold text-gray-900 mb-2">
+						Access Facilitators Panel
+					</h3>
+					<p class="text-gray-600">Enter the password to continue</p>
+				</div>
 
 				{#if passwordError}
-					<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-						<p class="text-sm text-red-600">{passwordError}</p>
+					<div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl animate-fade-in">
+						<p class="text-sm font-semibold text-red-600">{passwordError}</p>
 					</div>
 				{/if}
 
-				<div class="mb-4">
-					<label for="password-input" class="block text-sm font-medium text-gray-700 mb-2">
+				<div class="mb-6">
+					<label for="password-input" class="block text-sm font-semibold text-gray-900 mb-3">
 						Password
 					</label>
 					<input
@@ -467,24 +479,24 @@
 								handlePasswordSubmit();
 							}
 						}}
-						class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+						class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand font-medium"
 						placeholder="Enter password"
 						autofocus
 					/>
 				</div>
 
-				<div class="flex justify-end gap-3">
+				<div class="flex gap-3">
 					<button
 						type="button"
 						onclick={closePasswordModal}
-						class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+						class="flex-1 px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-xl hover:bg-gray-200 transition-all duration-300"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onclick={handlePasswordSubmit}
-						class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+						class="flex-1 px-6 py-3 text-sm font-bold text-white bg-brand-gradient rounded-xl hover:shadow-brand transition-all duration-300 transform hover:scale-105"
 					>
 						Submit
 					</button>
