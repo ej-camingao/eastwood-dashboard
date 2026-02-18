@@ -30,7 +30,14 @@
 					class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
 				>
 					<div class="flex-1">
-						<p class="font-medium text-gray-900">{attendee.full_name}</p>
+						<div class="flex items-center gap-2">
+							<p class="font-medium text-gray-900">{attendee.full_name}</p>
+							{#if attendee.is_first_timer}
+								<span class="px-2 py-0.5 text-xs font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-full">
+									First timer
+								</span>
+							{/if}
+						</div>
 						<p class="text-sm text-gray-500">Checked in at {formatCheckInTime(attendee.check_in_time)}</p>
 					</div>
 					<button

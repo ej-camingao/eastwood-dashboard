@@ -316,7 +316,8 @@ export async function getCheckedInAttendeesToday(): Promise<ServiceResponse<Chec
 					id,
 					first_name,
 					last_name,
-					contact_number
+					contact_number,
+					is_first_timer
 				)
 			`
 			)
@@ -342,7 +343,8 @@ export async function getCheckedInAttendeesToday(): Promise<ServiceResponse<Chec
 					last_name: attendee.last_name,
 					contact_number: attendee.contact_number,
 					full_name: `${attendee.first_name} ${attendee.last_name}`,
-					check_in_time: log.check_in_time
+					check_in_time: log.check_in_time,
+					is_first_timer: attendee.is_first_timer
 				};
 			}) || [];
 
@@ -628,7 +630,8 @@ export async function getFacilitatorWithAttendees(
 					id,
 					first_name,
 					last_name,
-					contact_number
+					contact_number,
+					is_first_timer
 				)
 			`
 			)
@@ -660,7 +663,8 @@ export async function getFacilitatorWithAttendees(
 						last_name: attendee.last_name,
 						contact_number: attendee.contact_number,
 						full_name: `${attendee.first_name} ${attendee.last_name}`,
-						check_in_time: log.check_in_time
+						check_in_time: log.check_in_time,
+						is_first_timer: attendee.is_first_timer
 					};
 				}) || [];
 
@@ -724,7 +728,8 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 					id,
 					first_name,
 					last_name,
-					contact_number
+					contact_number,
+					is_first_timer
 				)
 			`
 			)
@@ -756,7 +761,8 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 					last_name: attendee.last_name,
 					contact_number: attendee.contact_number,
 					full_name: `${attendee.first_name} ${attendee.last_name}`,
-					check_in_time: log.check_in_time
+					check_in_time: log.check_in_time,
+					is_first_timer: attendee.is_first_timer
 				});
 			}
 		});

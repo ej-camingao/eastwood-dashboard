@@ -59,6 +59,7 @@ export interface CheckedInAttendee {
 	contact_number: string;
 	full_name: string; // Computed: first_name + ' ' + last_name
 	check_in_time: string; // ISO timestamp
+	is_first_timer: boolean;
 }
 
 export interface Facilitator {
