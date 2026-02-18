@@ -32,7 +32,7 @@ export async function registerNewAttendeeAndCheckIn(
 			.insert({
 				first_name: data.first_name.trim(),
 				last_name: data.last_name.trim(),
-				contact_number: data.contact_number.trim(),
+				contact_number: data.has_mobile_number && data.contact_number.trim() ? data.contact_number.trim() : null,
 				email: data.email?.trim() || null,
 				birthday: data.birthday || null,
 				school_name: data.school_name.trim(),

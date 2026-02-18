@@ -70,31 +70,54 @@
 			</select>
 		</FormField>
 
-		<!-- Contact Number -->
-		<FormField id="contact_number" label="Contact Number" required helpText="Enter your 10-digit mobile number (e.g., 9123456789)">
-			<div class="flex">
-				<span
-					class="inline-flex items-center px-4 py-4 rounded-l-xl border-2 border-r-0 border-gray-200 bg-gray-50 text-gray-900 text-base font-bold"
-				>
-					+63
-				</span>
-				<input
-					type="tel"
-					id="contact_number"
-					value={formData.contact_number.replace(/^\+63/, '')}
-					oninput={(e) => {
-						// Only allow digits, max 10 characters (9xxxxxxxxx format)
-						const value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
-						onUpdate({ contact_number: value });
-					}}
-					required
-					disabled={isSubmitting}
-					class="flex-1 px-4 py-4 border-2 border-gray-200 rounded-r-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
-					placeholder="9123456789"
-					maxlength="10"
-				/>
-			</div>
+		<!-- Has Mobile Number -->
+		<FormField id="has_mobile_number" label="Do you have a mobile number?" required>
+			<select
+				id="has_mobile_number"
+				value={formData.has_mobile_number ? 'true' : 'false'}
+				onchange={(e) => {
+					const hasMobile = e.currentTarget.value === 'true';
+					onUpdate({ 
+						has_mobile_number: hasMobile,
+						contact_number: hasMobile ? formData.contact_number : ''
+					});
+				}}
+				required
+				disabled={isSubmitting}
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
+			>
+				<option value="true">Yes</option>
+				<option value="false">No</option>
+			</select>
 		</FormField>
+
+		<!-- Contact Number (conditional) -->
+		{#if formData.has_mobile_number}
+			<FormField id="contact_number" label="Contact Number" required helpText="Enter your 10-digit mobile number (e.g., 9123456789)">
+				<div class="flex">
+					<span
+						class="inline-flex items-center px-4 py-4 rounded-l-xl border-2 border-r-0 border-gray-200 bg-gray-50 text-gray-900 text-base font-bold"
+					>
+						+63
+					</span>
+					<input
+						type="tel"
+						id="contact_number"
+						value={formData.contact_number.replace(/^\+63/, '')}
+						oninput={(e) => {
+							// Only allow digits, max 10 characters (9xxxxxxxxx format)
+							const value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+							onUpdate({ contact_number: value });
+						}}
+						required
+						disabled={isSubmitting}
+						class="flex-1 px-4 py-4 border-2 border-gray-200 rounded-r-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
+						placeholder="9123456789"
+						maxlength="10"
+					/>
+				</div>
+			</FormField>
+		{/if}
 
 		<!-- Email -->
 		<FormField id="email" label="Email Address" helpText="Optional">

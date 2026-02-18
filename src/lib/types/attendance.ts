@@ -4,7 +4,7 @@ export interface Attendee {
 	id: string;
 	first_name: string;
 	last_name: string;
-	contact_number: string;
+	contact_number: string | null;
 	email: string | null;
 	birthday: string | null; // ISO date string
 	school_name: string;
@@ -23,6 +23,7 @@ export interface Attendee {
 export interface AttendeeRegistrationData {
 	first_name: string;
 	last_name: string;
+	has_mobile_number: boolean;
 	contact_number: string;
 	email?: string;
 	birthday?: string; // ISO date string (YYYY-MM-DD)
@@ -47,7 +48,7 @@ export interface SearchResult {
 	id: string;
 	first_name: string;
 	last_name: string;
-	contact_number: string;
+	contact_number: string | null;
 	full_name: string; // Computed: first_name + ' ' + last_name
 }
 
@@ -56,7 +57,7 @@ export interface CheckedInAttendee {
 	attendee_id: string;
 	first_name: string;
 	last_name: string;
-	contact_number: string;
+	contact_number: string | null;
 	full_name: string; // Computed: first_name + ' ' + last_name
 	check_in_time: string; // ISO timestamp
 	is_first_timer: boolean;

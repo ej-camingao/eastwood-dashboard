@@ -28,6 +28,7 @@
 	let registrationForm = $state<AttendeeRegistrationData>({
 		first_name: '',
 		last_name: '',
+		has_mobile_number: true,
 		contact_number: '',
 		email: '',
 		birthday: '',
@@ -157,6 +158,7 @@
 				registrationForm = {
 					first_name: '',
 					last_name: '',
+					has_mobile_number: true,
 					contact_number: '',
 					email: '',
 					birthday: '',

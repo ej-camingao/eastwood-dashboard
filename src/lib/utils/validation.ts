@@ -12,7 +12,13 @@ export interface ValidationResult {
 /**
  * Validate contact number (only checks if required, no format validation)
  */
-export function validateContactNumber(contactNumber: string): ValidationResult {
+export function validateContactNumber(contactNumber: string, hasMobileNumber: boolean): ValidationResult {
+	// If user indicated they don't have a mobile number, skip validation
+	if (!hasMobileNumber) {
+		return { isValid: true };
+	}
+
+	// If they have a mobile number, it's required
 	if (!contactNumber || !contactNumber.trim()) {
 		return {
 			isValid: false,
@@ -51,7 +57,8 @@ export function validateRequiredFields(data: AttendeeRegistrationData): Validati
 	if (!data.last_name?.trim()) {
 		return { isValid: false, error: 'Last name is required.' };
 	}
-	if (!data.contact_number?.trim()) {
+	// Contact number is only required if user has a mobile number
+	if (data.has_mobile_number && !data.contact_number?.trim()) {
 		return { isValid: false, error: 'Contact number is required.' };
 	}
 	if (!data.birthday?.trim()) {
@@ -84,7 +91,7 @@ export function validateRegistrationForm(data: AttendeeRegistrationData): Valida
 	}
 
 	// Validate contact number format
-	const contactValidation = validateContactNumber(data.contact_number);
+	const contactValidation = validateContactNumber(data.contact_number, data.has_mobile_number);
 	if (!contactValidation.isValid) {
 		return contactValidation;
 	}
