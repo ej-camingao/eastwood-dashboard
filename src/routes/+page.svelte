@@ -17,6 +17,7 @@
 		Facilitator
 	} from '$lib/types/attendance';
 	import Alert from '$lib/components/Alert.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 	import TabButton from '$lib/components/TabButton.svelte';
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
 	import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
@@ -61,6 +62,7 @@
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
+	let showSuccessToast = $state(false);
 
 	// Password protection for facilitators tab
 	const FACILITATOR_PASSWORD = 'Matt281920';
@@ -212,8 +214,10 @@
 	function showSuccess(message: string) {
 		successMessage = message;
 		errorMessage = '';
+		showSuccessToast = true;
 		setTimeout(() => {
 			successMessage = '';
+			showSuccessToast = false;
 		}, 5000);
 	}
 
@@ -390,10 +394,6 @@
 		</div>
 
 		<!-- Messages -->
-		{#if successMessage}
-			<Alert type="success" message={successMessage} />
-		{/if}
-
 		{#if errorMessage}
 			<Alert type="error" message={errorMessage} />
 		{/if}
@@ -436,6 +436,9 @@
 			/>
 		{/if}
 	</div>
+
+	<!-- Success Toast (Centered) -->
+	<Toast type="success" message={successMessage} show={showSuccessToast} />
 
 	<!-- Password Modal -->
 	{#if showPasswordModal}
