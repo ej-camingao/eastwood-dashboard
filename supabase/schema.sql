@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS facilitators (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     gender TEXT NOT NULL CHECK (gender IN ('Male', 'Female')),
+    is_facilitating BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS attendance_log (
 -- Create indexes for efficient lookups
 CREATE INDEX IF NOT EXISTS idx_facilitators_gender ON facilitators(gender);
 CREATE INDEX IF NOT EXISTS idx_facilitators_name ON facilitators(first_name, last_name);
+CREATE INDEX IF NOT EXISTS idx_facilitators_is_facilitating ON facilitators(is_facilitating);
 CREATE INDEX IF NOT EXISTS idx_attendees_first_name ON attendees(first_name);
 CREATE INDEX IF NOT EXISTS idx_attendees_last_name ON attendees(last_name);
 CREATE INDEX IF NOT EXISTS idx_attendees_contact_number ON attendees(contact_number);
@@ -62,6 +64,7 @@ COMMENT ON TABLE facilitators IS 'Stores information about facilitators for brea
 COMMENT ON TABLE attendees IS 'Stores information about all attendees registered for Elevate Saturday Service';
 COMMENT ON TABLE attendance_log IS 'Tracks attendance records for each service date';
 COMMENT ON COLUMN facilitators.gender IS 'Gender of the facilitator: Male or Female';
+COMMENT ON COLUMN facilitators.is_facilitating IS 'Whether the facilitator is actively facilitating. If false, they will not appear in the facilitator tab but will be treated as a regular attendee.';
 COMMENT ON COLUMN attendees.contact_number IS 'Unique contact number in format +639xxxxxxxxx';
 COMMENT ON COLUMN attendees.gender IS 'Gender of the attendee: Male or Female';
 COMMENT ON COLUMN attendees.is_dgroup_member IS 'Whether the attendee is a member of a DGroup';

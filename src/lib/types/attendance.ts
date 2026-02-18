@@ -68,6 +68,7 @@ export interface Facilitator {
 	first_name: string;
 	last_name: string;
 	gender: 'Male' | 'Female';
+	is_facilitating: boolean;
 	created_at: string; // ISO timestamp
 }
 

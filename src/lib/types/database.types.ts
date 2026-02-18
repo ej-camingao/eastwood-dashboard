@@ -94,6 +94,7 @@ export interface Database {
 					first_name: string;
 					last_name: string;
 					gender: string;
+					is_facilitating: boolean;
 					created_at: string;
 				};
 				Insert: {
@@ -101,6 +102,7 @@ export interface Database {
 					first_name: string;
 					last_name: string;
 					gender: string;
+					is_facilitating?: boolean;
 					created_at?: string;
 				};
 				Update: {
@@ -108,6 +110,7 @@ export interface Database {
 					first_name?: string;
 					last_name?: string;
 					gender?: string;
+					is_facilitating?: boolean;
 					created_at?: string;
 				};
 			};

@@ -218,7 +218,7 @@
 		setTimeout(() => {
 			successMessage = '';
 			showSuccessToast = false;
-		}, 5000);
+		}, 3000);
 	}
 
 	function showError(message: string) {

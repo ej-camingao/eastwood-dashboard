@@ -417,16 +417,17 @@ export async function removeCheckIn(attendanceLogId: string): Promise<ServiceRes
 
 /**
  * Check if an attendee is a facilitator (exists in facilitators table)
+ * Returns true only if is_facilitating is true
  */
 export async function isFacilitator(attendeeId: string): Promise<boolean> {
 	try {
 		const { data, error } = await supabase
 			.from('facilitators')
-			.select('id')
+			.select('id, is_facilitating')
 			.eq('id', attendeeId)
 			.single();
 
-		return !error && data !== null;
+		return !error && data !== null && data.is_facilitating === true;
 	} catch (error) {
 		console.error('Error in isFacilitator:', error);
 		return false;
@@ -435,6 +436,7 @@ export async function isFacilitator(attendeeId: string): Promise<boolean> {
 
 /**
  * Get facilitators who have checked in today
+ * Only returns facilitators where is_facilitating is true
  */
 export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facilitator[]>> {
 	try {
@@ -464,10 +466,12 @@ export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facili
 		const checkedInAttendeeIds = [...new Set(attendanceLogs.map((log) => log.attendee_id))];
 
 		// Get all facilitators whose IDs are in the checked-in attendee list
+		// Filter by is_facilitating = true
 		const { data: facilitators, error: facilitatorsError } = await supabase
 			.from('facilitators')
 			.select('*')
 			.in('id', checkedInAttendeeIds)
+			.eq('is_facilitating', true)
 			.order('first_name', { ascending: true });
 
 		if (facilitatorsError) {
@@ -522,12 +526,14 @@ export async function getCheckedInFacilitatorsByGender(
 
 /**
  * Get all facilitators
+ * Only returns facilitators where is_facilitating is true
  */
 export async function getFacilitators(): Promise<ServiceResponse<Facilitator[]>> {
 	try {
 		const { data, error } = await supabase
 			.from('facilitators')
 			.select('*')
+			.eq('is_facilitating', true)
 			.order('first_name', { ascending: true });
 
 		if (error) {
@@ -552,6 +558,7 @@ export async function getFacilitators(): Promise<ServiceResponse<Facilitator[]>>
 
 /**
  * Get facilitators filtered by gender
+ * Only returns facilitators where is_facilitating is true
  */
 export async function getFacilitatorsByGender(
 	gender: 'Male' | 'Female'
@@ -561,6 +568,7 @@ export async function getFacilitatorsByGender(
 			.from('facilitators')
 			.select('*')
 			.eq('gender', gender)
+			.eq('is_facilitating', true)
 			.order('first_name', { ascending: true });
 
 		if (error) {
@@ -608,9 +616,11 @@ export async function getFacilitatorWithAttendees(
 		}
 
 		// Get all facilitator IDs to filter them out from attendees
+		// Only include facilitators who are actively facilitating
 		const { data: allFacilitators, error: facilitatorIdsError } = await supabase
 			.from('facilitators')
-			.select('id');
+			.select('id')
+			.eq('is_facilitating', true);
 		
 		const facilitatorIds = new Set<string>();
 		if (!facilitatorIdsError && allFacilitators) {
@@ -706,9 +716,11 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 		const today = new Date().toISOString().split('T')[0];
 
 		// Get all facilitator IDs to filter them out from attendees
+		// Only include facilitators who are actively facilitating
 		const { data: allFacilitators, error: facilitatorIdsError } = await supabase
 			.from('facilitators')
-			.select('id');
+			.select('id')
+			.eq('is_facilitating', true);
 		
 		const facilitatorIds = new Set<string>();
 		if (!facilitatorIdsError && allFacilitators) {
@@ -1010,9 +1022,11 @@ export async function assignFacilitatorToAttendee(
 		}
 
 		// Get all facilitator IDs to filter them out when counting attendees
+		// Only include facilitators who are actively facilitating
 		const { data: allFacilitators, error: facilitatorIdsError } = await supabase
 			.from('facilitators')
-			.select('id');
+			.select('id')
+			.eq('is_facilitating', true);
 		
 		const facilitatorIds = new Set<string>();
 		if (!facilitatorIdsError && allFacilitators) {
