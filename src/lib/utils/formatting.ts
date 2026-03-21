@@ -3,7 +3,10 @@
 /**
  * Format contact number for display (show last 4 digits)
  */
-export function formatContactNumber(contactNumber: string): string {
+export function formatContactNumber(contactNumber: string | null): string {
+	if (contactNumber == null || contactNumber === '') {
+		return '—';
+	}
 	if (contactNumber.length > 4) {
 		return `****${contactNumber.slice(-4)}`;
 	}

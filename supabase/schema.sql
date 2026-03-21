@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS attendees (
     is_dgroup_member BOOLEAN NOT NULL DEFAULT false,
     dgroup_leader_name TEXT,
     is_first_timer BOOLEAN DEFAULT FALSE NOT NULL,
+    heard_about_elevate TEXT CHECK (
+        heard_about_elevate IS NULL
+        OR heard_about_elevate IN ('Facebook', 'Friend', 'Family', 'Instagram', 'Others')
+    ),
     facilitator_id UUID REFERENCES facilitators(id) ON DELETE SET NULL,
     default_facilitator_id UUID REFERENCES facilitators(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL

@@ -11,7 +11,7 @@ export interface Database {
 					id: string;
 					first_name: string;
 					last_name: string;
-					contact_number: string;
+					contact_number: string | null;
 					email: string | null;
 					birthday: string | null;
 					school_name: string;
@@ -22,6 +22,7 @@ export interface Database {
 					is_dgroup_member: boolean;
 					dgroup_leader_name: string | null;
 					is_first_timer: boolean;
+					heard_about_elevate: string | null;
 					facilitator_id: string | null;
 					default_facilitator_id: string | null;
 					created_at: string;
@@ -30,7 +31,7 @@ export interface Database {
 					id?: string;
 					first_name: string;
 					last_name: string;
-					contact_number: string;
+					contact_number: string | null;
 					email?: string | null;
 					birthday?: string | null;
 					school_name: string;
@@ -41,6 +42,7 @@ export interface Database {
 					is_dgroup_member: boolean;
 					dgroup_leader_name?: string | null;
 					is_first_timer?: boolean;
+					heard_about_elevate?: string | null;
 					facilitator_id?: string | null;
 					default_facilitator_id?: string | null;
 					created_at?: string;
@@ -49,7 +51,7 @@ export interface Database {
 					id?: string;
 					first_name?: string;
 					last_name?: string;
-					contact_number?: string;
+					contact_number?: string | null;
 					email?: string | null;
 					birthday?: string | null;
 					school_name?: string;
@@ -60,10 +62,12 @@ export interface Database {
 					is_dgroup_member?: boolean;
 					dgroup_leader_name?: string | null;
 					is_first_timer?: boolean;
+					heard_about_elevate?: string | null;
 					facilitator_id?: string | null;
 					default_facilitator_id?: string | null;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			attendance_log: {
 				Row: {
@@ -87,6 +91,7 @@ export interface Database {
 					check_in_time?: string;
 					facilitator_id?: string | null;
 				};
+				Relationships: [];
 			};
 			facilitators: {
 				Row: {
@@ -113,8 +118,11 @@ export interface Database {
 					is_facilitating?: boolean;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 		};
+		Views: Record<string, never>;
+		Functions: Record<string, never>;
 	};
 }
 

@@ -8,7 +8,23 @@ import type {
 	Facilitator,
 	FacilitatorWithAttendees
 } from '$lib/types/attendance';
+import type { Database } from '$lib/types/database.types';
 import { validateRegistrationForm } from '$lib/utils/validation';
+
+type AttendanceLogRow = Database['public']['Tables']['attendance_log']['Row'];
+
+/** PostgREST v12 inference often yields `{}` for chained selects; narrow at boundaries. */
+function asAttendee(data: unknown): Attendee {
+	return data as Attendee;
+}
+
+function asFacilitator(data: unknown): Facilitator {
+	return data as Facilitator;
+}
+
+function asAttendanceLogRow(data: unknown): AttendanceLogRow {
+	return data as AttendanceLogRow;
+}
 
 /**
  * Register a new attendee and immediately check them in for today's service
@@ -27,7 +43,7 @@ export async function registerNewAttendeeAndCheckIn(
 		}
 
 		// Insert new attendee
-		const { data: attendee, error: attendeeError } = await supabase
+		const { data: insertedAttendeeRaw, error: attendeeError } = await supabase
 			.from('attendees')
 			.insert({
 				first_name: data.first_name.trim(),
@@ -44,9 +60,10 @@ export async function registerNewAttendeeAndCheckIn(
 				dgroup_leader_name: data.is_dgroup_member && data.dgroup_leader_name
 					? data.dgroup_leader_name.trim()
 					: null,
-				is_first_timer: true
+				is_first_timer: true,
+				heard_about_elevate: data.heard_about_elevate || null
 			})
-			.select()
+			.select('*')
 			.single();
 
 		if (attendeeError) {
@@ -78,19 +95,23 @@ export async function registerNewAttendeeAndCheckIn(
 			};
 		}
 
-		if (!attendee) {
+		if (!insertedAttendeeRaw) {
 			return {
 				success: false,
 				error: 'Failed to create attendee record.'
 			};
 		}
 
+		const attendee = asAttendee(insertedAttendeeRaw);
+
 		// Create attendance log entry for today
 		const today = new Date().toISOString().split('T')[0];
-		const { data: newLog, error: attendanceError } = await supabase.from('attendance_log').insert({
+		const { data: newLogRaw, error: attendanceError } = await supabase.from('attendance_log').insert({
 			attendee_id: attendee.id,
 			service_date: today
-		}).select().single();
+		})
+			.select('*')
+			.single();
 
 		if (attendanceError) {
 			console.error('Failed to create attendance log:', attendanceError);
@@ -100,20 +121,22 @@ export async function registerNewAttendeeAndCheckIn(
 			};
 		}
 
+		const newLog = newLogRaw ? asAttendanceLogRow(newLogRaw) : null;
+
 		// Check if attendance_log already has a facilitator_id (manual intervention)
 		// If not, auto-assign facilitator
 		if (!newLog?.facilitator_id) {
 			await assignFacilitatorToAttendee(attendee.id, attendee.gender as 'Male' | 'Female');
 			// Fetch updated attendee data
-			const { data: updatedAttendee } = await supabase
+			const { data: updatedAttendeeRaw } = await supabase
 				.from('attendees')
 				.select('*')
 				.eq('id', attendee.id)
 				.single();
-			if (updatedAttendee) {
+			if (updatedAttendeeRaw) {
 				return {
 					success: true,
-					data: updatedAttendee
+					data: asAttendee(updatedAttendeeRaw)
 				};
 			}
 		}
@@ -232,10 +255,12 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 		}
 
 		// Create attendance log entry
-		const { data: newLog, error: attendanceError } = await supabase.from('attendance_log').insert({
+		const { data: newLogRaw, error: attendanceError } = await supabase.from('attendance_log').insert({
 			attendee_id: attendeeId,
 			service_date: today
-		}).select().single();
+		})
+			.select('*')
+			.single();
 
 		if (attendanceError) {
 			// Handle duplicate check-in attempt (race condition)
@@ -251,14 +276,16 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
+		const newLog = newLogRaw ? asAttendanceLogRow(newLogRaw) : null;
+
 		// Fetch the attendee data to check if facilitator needs to be assigned
-		const { data: attendee, error: attendeeError } = await supabase
+		const { data: attendeeRaw, error: attendeeError } = await supabase
 			.from('attendees')
 			.select('*')
 			.eq('id', attendeeId)
 			.single();
 
-		if (attendeeError || !attendee) {
+		if (attendeeError || !attendeeRaw) {
 			// Check-in succeeded but couldn't fetch attendee data
 			return {
 				success: true,
@@ -266,20 +293,22 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
+		const attendee = asAttendee(attendeeRaw);
+
 		// Check if attendance_log already has a facilitator_id (manual intervention)
 		// If not, auto-assign facilitator
 		if (!newLog?.facilitator_id) {
 			await assignFacilitatorToAttendee(attendeeId, attendee.gender as 'Male' | 'Female');
 			// Fetch updated attendee data
-			const { data: updatedAttendee } = await supabase
+			const { data: updatedAttendeeRaw } = await supabase
 				.from('attendees')
 				.select('*')
 				.eq('id', attendeeId)
 				.single();
-			if (updatedAttendee) {
+			if (updatedAttendeeRaw) {
 				return {
 					success: true,
-					data: updatedAttendee
+					data: asAttendee(updatedAttendeeRaw)
 				};
 			}
 		}
@@ -427,7 +456,8 @@ export async function isFacilitator(attendeeId: string): Promise<boolean> {
 			.eq('id', attendeeId)
 			.single();
 
-		return !error && data !== null && data.is_facilitating === true;
+		const row = data as { is_facilitating: boolean } | null;
+		return !error && row !== null && row.is_facilitating === true;
 	} catch (error) {
 		console.error('Error in isFacilitator:', error);
 		return false;
@@ -483,7 +513,7 @@ export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facili
 
 		return {
 			success: true,
-			data: facilitators || []
+			data: (facilitators || []).map((row) => asFacilitator(row))
 		};
 	} catch (error) {
 		console.error('Error in getCheckedInFacilitators:', error);
@@ -545,7 +575,7 @@ export async function getFacilitators(): Promise<ServiceResponse<Facilitator[]>>
 
 		return {
 			success: true,
-			data: data || []
+			data: (data || []).map((row) => asFacilitator(row))
 		};
 	} catch (error) {
 		console.error('Error in getFacilitators:', error);
@@ -580,7 +610,7 @@ export async function getFacilitatorsByGender(
 
 		return {
 			success: true,
-			data: data || []
+			data: (data || []).map((row) => asFacilitator(row))
 		};
 	} catch (error) {
 		console.error('Error in getFacilitatorsByGender:', error);
@@ -614,6 +644,8 @@ export async function getFacilitatorWithAttendees(
 				error: facilitatorError?.message || 'Facilitator not found.'
 			};
 		}
+
+		const facilitatorRecord = asFacilitator(facilitator);
 
 		// Get all facilitator IDs to filter them out from attendees
 		// Only include facilitators who are actively facilitating
@@ -681,7 +713,7 @@ export async function getFacilitatorWithAttendees(
 		return {
 			success: true,
 			data: {
-				...facilitator,
+				...facilitatorRecord,
 				attendees,
 				attendee_count: attendees.length
 			}

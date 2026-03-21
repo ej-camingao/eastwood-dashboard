@@ -110,7 +110,7 @@
 		</div>
 		<AttendeeList
 			attendees={checkedInAttendees}
-			{isLoadingCheckedIn}
+			isLoading={isLoadingCheckedIn}
 			onRemove={onRemoveCheckIn}
 			onRefresh={onRefresh}
 			disabled={isSubmitting}

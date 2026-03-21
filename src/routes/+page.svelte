@@ -39,7 +39,8 @@
 		social_media_name: '',
 		gender: 'Male',
 		is_dgroup_member: false,
-		dgroup_leader_name: ''
+		dgroup_leader_name: '',
+		heard_about_elevate: ''
 	});
 
 	// Search state for returning users
@@ -170,7 +171,8 @@
 					social_media_name: '',
 					gender: 'Male',
 					is_dgroup_member: false,
-					dgroup_leader_name: ''
+					dgroup_leader_name: '',
+					heard_about_elevate: ''
 				};
 			} else {
 				showError(response.error || 'Registration failed. Please try again.');

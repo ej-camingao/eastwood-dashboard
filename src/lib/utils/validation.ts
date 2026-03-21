@@ -1,5 +1,13 @@
 import { EMAIL_REGEX } from './constants';
-import type { AttendeeRegistrationData } from '$lib/types/attendance';
+import type { AttendeeRegistrationData, HeardAboutElevate } from '$lib/types/attendance';
+
+const HEARD_ABOUT_OPTIONS: HeardAboutElevate[] = [
+	'Facebook',
+	'Friend',
+	'Family',
+	'Instagram',
+	'Others'
+];
 
 /**
  * Validation result interface
@@ -75,6 +83,10 @@ export function validateRequiredFields(data: AttendeeRegistrationData): Validati
 	}
 	if (!data.gender) {
 		return { isValid: false, error: 'Gender is required.' };
+	}
+	const heard = data.heard_about_elevate;
+	if (!heard?.trim() || !HEARD_ABOUT_OPTIONS.includes(heard as HeardAboutElevate)) {
+		return { isValid: false, error: 'Please select how you heard about ELEVATE.' };
 	}
 
 	return { isValid: true };

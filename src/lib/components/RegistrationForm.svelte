@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AttendeeRegistrationData } from '$lib/types/attendance';
+	import type { AttendeeRegistrationData, HeardAboutElevate } from '$lib/types/attendance';
 	import FormField from './FormField.svelte';
 	import { getTodayDate } from '$lib/utils/formatting';
 
@@ -227,6 +227,28 @@
 				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
 				placeholder="DGroup Leader Name (optional)"
 			/>
+		</FormField>
+
+		<!-- How did you hear about ELEVATE -->
+		<FormField id="heard_about_elevate" label="How did you hear about ELEVATE?" required>
+			<select
+				id="heard_about_elevate"
+				value={formData.heard_about_elevate}
+				onchange={(e) =>
+					onUpdate({
+						heard_about_elevate: e.currentTarget.value as HeardAboutElevate | ''
+					})}
+				required
+				disabled={isSubmitting}
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
+			>
+				<option value="" disabled>Select an option</option>
+				<option value="Facebook">Facebook</option>
+				<option value="Friend">Friend</option>
+				<option value="Family">Family</option>
+				<option value="Instagram">Instagram</option>
+				<option value="Others">Others</option>
+			</select>
 		</FormField>
 
 		<!-- Submit Button -->

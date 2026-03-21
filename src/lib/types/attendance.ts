@@ -1,5 +1,7 @@
 // Type definitions for attendance system
 
+export type HeardAboutElevate = 'Facebook' | 'Friend' | 'Family' | 'Instagram' | 'Others';
+
 export interface Attendee {
 	id: string;
 	first_name: string;
@@ -15,6 +17,7 @@ export interface Attendee {
 	is_dgroup_member: boolean;
 	dgroup_leader_name: string | null;
 	is_first_timer: boolean;
+	heard_about_elevate: HeardAboutElevate | null;
 	facilitator_id: string | null;
 	default_facilitator_id: string | null;
 	created_at: string; // ISO timestamp
@@ -34,6 +37,8 @@ export interface AttendeeRegistrationData {
 	gender: 'Male' | 'Female';
 	is_dgroup_member: boolean;
 	dgroup_leader_name?: string;
+	/** Empty until user selects an option */
+	heard_about_elevate: HeardAboutElevate | '';
 }
 
 export interface AttendanceLog {
