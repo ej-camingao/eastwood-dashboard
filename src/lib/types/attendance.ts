@@ -2,6 +2,8 @@
 
 export type HeardAboutElevate = 'Facebook' | 'Friend' | 'Family' | 'Instagram' | 'Others';
 
+export type Ministry = 'elevate' | 'b1g';
+
 export interface Attendee {
 	id: string;
 	first_name: string;
@@ -43,10 +45,31 @@ export interface AttendeeRegistrationData {
 
 export interface AttendanceLog {
 	id: string;
-	attendee_id: string;
+	attendee_id: string | null;
+	b1g_attendee_id: string | null;
+	ministry: Ministry;
 	service_date: string; // ISO date string
 	check_in_time: string; // ISO timestamp
 	facilitator_id: string | null;
+}
+
+export interface B1GAttendee {
+	id: string;
+	first_name: string;
+	last_name: string;
+	birthdate: string; // YYYY-MM-01 (day synthetic)
+	contact_number: string;
+	social_media_name: string | null;
+	created_at: string;
+}
+
+export interface B1GRegistrationData {
+	first_name: string;
+	last_name: string;
+	birth_month: string; // '01'..'12'
+	birth_year: string;  // 'YYYY'
+	contact_number: string;
+	social_media_name?: string;
 }
 
 export interface SearchResult {
@@ -55,6 +78,7 @@ export interface SearchResult {
 	last_name: string;
 	contact_number: string | null;
 	full_name: string; // Computed: first_name + ' ' + last_name
+	ministry: Ministry;
 }
 
 export interface CheckedInAttendee {
@@ -66,6 +90,7 @@ export interface CheckedInAttendee {
 	full_name: string; // Computed: first_name + ' ' + last_name
 	check_in_time: string; // ISO timestamp
 	is_first_timer: boolean;
+	ministry: Ministry;
 }
 
 export interface Facilitator {

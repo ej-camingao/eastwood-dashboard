@@ -2,6 +2,9 @@ import { supabase } from '$lib/supabase';
 import type {
 	Attendee,
 	AttendeeRegistrationData,
+	B1GAttendee,
+	B1GRegistrationData,
+	Ministry,
 	ServiceResponse,
 	SearchResult,
 	CheckedInAttendee,
@@ -9,13 +12,17 @@ import type {
 	FacilitatorWithAttendees
 } from '$lib/types/attendance';
 import type { Database } from '$lib/types/database.types';
-import { validateRegistrationForm } from '$lib/utils/validation';
+import { validateB1GRegistrationForm, validateRegistrationForm } from '$lib/utils/validation';
 
 type AttendanceLogRow = Database['public']['Tables']['attendance_log']['Row'];
 
 /** PostgREST v12 inference often yields `{}` for chained selects; narrow at boundaries. */
 function asAttendee(data: unknown): Attendee {
 	return data as Attendee;
+}
+
+function asB1GAttendee(data: unknown): B1GAttendee {
+	return data as B1GAttendee;
 }
 
 function asFacilitator(data: unknown): Facilitator {
@@ -162,7 +169,104 @@ export async function registerNewAttendeeAndCheckIn(
 }
 
 /**
- * Search for attendees by name or contact number (case-insensitive)
+ * Register a new B1G Eastwood attendee and immediately check them in for today's service.
+ * Writes to `b1g_attendees` and `attendance_log` with ministry='b1g'.
+ */
+export async function registerNewB1GAttendeeAndCheckIn(
+	data: B1GRegistrationData
+): Promise<ServiceResponse<B1GAttendee>> {
+	try {
+		const validation = validateB1GRegistrationForm(data);
+		if (!validation.isValid) {
+			return {
+				success: false,
+				error: validation.error || 'Please fill in all required fields.'
+			};
+		}
+
+		// Compose stored birthdate as YYYY-MM-01 (day is synthetic).
+		const birthdate = `${data.birth_year}-${data.birth_month}-01`;
+
+		const { data: insertedRaw, error: insertError } = await supabase
+			.from('b1g_attendees')
+			.insert({
+				first_name: data.first_name.trim(),
+				last_name: data.last_name.trim(),
+				birthdate,
+				contact_number: data.contact_number.trim(),
+				social_media_name: data.social_media_name?.trim() || null
+			})
+			.select('*')
+			.single();
+
+		if (insertError) {
+			console.error('Supabase error (b1g_attendees insert):', insertError);
+			if (insertError.code === '42501' || insertError.message?.includes('permission denied')) {
+				return {
+					success: false,
+					error: 'Permission denied. Please check your Supabase Row Level Security policies.'
+				};
+			}
+			if (insertError.code === '42P01' || insertError.message?.includes('does not exist')) {
+				return {
+					success: false,
+					error: 'Database tables not found. Please run the SQL schema in your Supabase SQL Editor.'
+				};
+			}
+			return {
+				success: false,
+				error: insertError.message || 'Failed to register B1G attendee.'
+			};
+		}
+
+		if (!insertedRaw) {
+			return { success: false, error: 'Failed to create B1G attendee record.' };
+		}
+
+		const attendee = asB1GAttendee(insertedRaw);
+
+		// Create attendance log entry for today, ministry='b1g'.
+		const today = new Date().toISOString().split('T')[0];
+		const { error: attendanceError } = await supabase.from('attendance_log').insert({
+			b1g_attendee_id: attendee.id,
+			ministry: 'b1g',
+			service_date: today
+		});
+
+		if (attendanceError) {
+			console.error('Failed to create B1G attendance log:', attendanceError);
+			if (attendanceError.code === '23505') {
+				return {
+					success: false,
+					error: 'This attendee is already checked in for today\'s service.'
+				};
+			}
+			return {
+				success: false,
+				error: `Attendee registered but check-in failed: ${attendanceError.message || 'Unknown error'}`
+			};
+		}
+
+		return { success: true, data: attendee };
+	} catch (error) {
+		console.error('Error in registerNewB1GAttendeeAndCheckIn:', error);
+		if (error instanceof TypeError && error.message.includes('fetch')) {
+			return {
+				success: false,
+				error: 'Network error: Unable to connect to Supabase. Please check your internet connection and Supabase configuration.'
+			};
+		}
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Search for attendees by name or contact number (case-insensitive).
+ * Queries both Elevate (`attendees`) and B1G (`b1g_attendees`) tables and merges results
+ * with a `ministry` discriminator.
  */
 export async function searchAttendees(searchString: string): Promise<ServiceResponse<SearchResult[]>> {
 	try {
@@ -174,38 +278,57 @@ export async function searchAttendees(searchString: string): Promise<ServiceResp
 		}
 
 		const searchTerm = searchString.trim();
+		const orFilter = `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,contact_number.ilike.%${searchTerm}%`;
 
-		// Search across first_name, last_name, and contact_number using ILIKE
-		// Supabase OR syntax: field.ilike.%term%,field2.ilike.%term%
-		const { data, error } = await supabase
-			.from('attendees')
-			.select('id, first_name, last_name, contact_number')
-			.or(
-				`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,contact_number.ilike.%${searchTerm}%`
-			)
-			.limit(10)
-			.order('first_name', { ascending: true });
+		const [elevateResp, b1gResp] = await Promise.all([
+			supabase
+				.from('attendees')
+				.select('id, first_name, last_name, contact_number')
+				.or(orFilter)
+				.limit(10)
+				.order('first_name', { ascending: true }),
+			supabase
+				.from('b1g_attendees')
+				.select('id, first_name, last_name, contact_number')
+				.or(orFilter)
+				.limit(10)
+				.order('first_name', { ascending: true })
+		]);
 
-		if (error) {
-			return {
-				success: false,
-				error: error.message || 'Failed to search attendees.'
-			};
+		if (elevateResp.error) {
+			return { success: false, error: elevateResp.error.message || 'Failed to search attendees.' };
+		}
+		if (b1gResp.error) {
+			return { success: false, error: b1gResp.error.message || 'Failed to search B1G attendees.' };
 		}
 
-		// Transform data to include full_name
-		const results: SearchResult[] =
-			data?.map((attendee) => ({
+		const elevateResults: SearchResult[] =
+			elevateResp.data?.map((attendee) => ({
 				id: attendee.id,
 				first_name: attendee.first_name,
 				last_name: attendee.last_name,
 				contact_number: attendee.contact_number,
-				full_name: `${attendee.first_name} ${attendee.last_name}`
+				full_name: `${attendee.first_name} ${attendee.last_name}`,
+				ministry: 'elevate' as Ministry
 			})) || [];
+
+		const b1gResults: SearchResult[] =
+			b1gResp.data?.map((attendee) => ({
+				id: attendee.id,
+				first_name: attendee.first_name,
+				last_name: attendee.last_name,
+				contact_number: attendee.contact_number,
+				full_name: `${attendee.first_name} ${attendee.last_name}`,
+				ministry: 'b1g' as Ministry
+			})) || [];
+
+		const merged = [...elevateResults, ...b1gResults].sort((a, b) =>
+			a.first_name.localeCompare(b.first_name)
+		);
 
 		return {
 			success: true,
-			data: results
+			data: merged
 		};
 	} catch (error) {
 		console.error('Error in searchAttendees:', error);
@@ -219,7 +342,10 @@ export async function searchAttendees(searchString: string): Promise<ServiceResp
 /**
  * Check in an existing attendee for today's service
  */
-export async function checkInAttendee(attendeeId: string): Promise<ServiceResponse<Attendee>> {
+export async function checkInAttendee(
+	attendeeId: string,
+	ministry: Ministry = 'elevate'
+): Promise<ServiceResponse<Attendee | B1GAttendee>> {
 	try {
 		if (!attendeeId) {
 			return {
@@ -228,19 +354,18 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
-		// Get today's date in YYYY-MM-DD format
 		const today = new Date().toISOString().split('T')[0];
+		const personColumn = ministry === 'elevate' ? 'attendee_id' : 'b1g_attendee_id';
 
-		// Check if already checked in today
+		// Check if already checked in today for this ministry
 		const { data: existingCheckIn, error: checkError } = await supabase
 			.from('attendance_log')
 			.select('id')
-			.eq('attendee_id', attendeeId)
+			.eq(personColumn, attendeeId)
 			.eq('service_date', today)
-			.single();
+			.maybeSingle();
 
 		if (checkError && checkError.code !== 'PGRST116') {
-			// PGRST116 is "not found" which is expected if not checked in
 			return {
 				success: false,
 				error: checkError.message || 'Failed to check existing attendance.'
@@ -254,16 +379,19 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
-		// Create attendance log entry
-		const { data: newLogRaw, error: attendanceError } = await supabase.from('attendance_log').insert({
-			attendee_id: attendeeId,
-			service_date: today
-		})
+		// Create attendance log entry with the appropriate FK column + ministry
+		const insertPayload =
+			ministry === 'elevate'
+				? { attendee_id: attendeeId, ministry: 'elevate' as const, service_date: today }
+				: { b1g_attendee_id: attendeeId, ministry: 'b1g' as const, service_date: today };
+
+		const { data: newLogRaw, error: attendanceError } = await supabase
+			.from('attendance_log')
+			.insert(insertPayload)
 			.select('*')
 			.single();
 
 		if (attendanceError) {
-			// Handle duplicate check-in attempt (race condition)
 			if (attendanceError.code === '23505') {
 				return {
 					success: false,
@@ -276,9 +404,18 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			};
 		}
 
+		if (ministry === 'b1g') {
+			// No facilitator auto-assignment for B1G.
+			const { data: b1gRaw } = await supabase
+				.from('b1g_attendees')
+				.select('*')
+				.eq('id', attendeeId)
+				.single();
+			return { success: true, data: b1gRaw ? asB1GAttendee(b1gRaw) : undefined };
+		}
+
 		const newLog = newLogRaw ? asAttendanceLogRow(newLogRaw) : null;
 
-		// Fetch the attendee data to check if facilitator needs to be assigned
 		const { data: attendeeRaw, error: attendeeError } = await supabase
 			.from('attendees')
 			.select('*')
@@ -286,7 +423,6 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 			.single();
 
 		if (attendeeError || !attendeeRaw) {
-			// Check-in succeeded but couldn't fetch attendee data
 			return {
 				success: true,
 				error: 'Checked in successfully, but could not retrieve attendee information.'
@@ -295,28 +431,19 @@ export async function checkInAttendee(attendeeId: string): Promise<ServiceRespon
 
 		const attendee = asAttendee(attendeeRaw);
 
-		// Check if attendance_log already has a facilitator_id (manual intervention)
-		// If not, auto-assign facilitator
 		if (!newLog?.facilitator_id) {
 			await assignFacilitatorToAttendee(attendeeId, attendee.gender as 'Male' | 'Female');
-			// Fetch updated attendee data
 			const { data: updatedAttendeeRaw } = await supabase
 				.from('attendees')
 				.select('*')
 				.eq('id', attendeeId)
 				.single();
 			if (updatedAttendeeRaw) {
-				return {
-					success: true,
-					data: asAttendee(updatedAttendeeRaw)
-				};
+				return { success: true, data: asAttendee(updatedAttendeeRaw) };
 			}
 		}
 
-		return {
-			success: true,
-			data: attendee
-		};
+		return { success: true, data: attendee };
 	} catch (error) {
 		console.error('Error in checkInAttendee:', error);
 		return {
@@ -333,13 +460,15 @@ export async function getCheckedInAttendeesToday(): Promise<ServiceResponse<Chec
 	try {
 		const today = new Date().toISOString().split('T')[0];
 
-		// Fetch attendance logs for today with attendee information
+		// Fetch attendance logs for today joined to both Elevate and B1G person tables.
 		const { data, error } = await supabase
 			.from('attendance_log')
 			.select(
 				`
 				id,
 				attendee_id,
+				b1g_attendee_id,
+				ministry,
 				check_in_time,
 				attendees:attendee_id (
 					id,
@@ -347,6 +476,12 @@ export async function getCheckedInAttendeesToday(): Promise<ServiceResponse<Chec
 					last_name,
 					contact_number,
 					is_first_timer
+				),
+				b1g_attendees:b1g_attendee_id (
+					id,
+					first_name,
+					last_name,
+					contact_number
 				)
 			`
 			)
@@ -361,21 +496,25 @@ export async function getCheckedInAttendeesToday(): Promise<ServiceResponse<Chec
 			};
 		}
 
-		// Transform the data to match CheckedInAttendee interface
 		const checkedInAttendees: CheckedInAttendee[] =
-			data?.map((log: any) => {
-				const attendee = log.attendees;
-				return {
-					attendance_log_id: log.id,
-					attendee_id: attendee.id,
-					first_name: attendee.first_name,
-					last_name: attendee.last_name,
-					contact_number: attendee.contact_number,
-					full_name: `${attendee.first_name} ${attendee.last_name}`,
-					check_in_time: log.check_in_time,
-					is_first_timer: attendee.is_first_timer
-				};
-			}) || [];
+			data
+				?.map((log: any): CheckedInAttendee | null => {
+					const ministry: Ministry = log.ministry === 'b1g' ? 'b1g' : 'elevate';
+					const person = ministry === 'b1g' ? log.b1g_attendees : log.attendees;
+					if (!person) return null;
+					return {
+						attendance_log_id: log.id,
+						attendee_id: person.id,
+						first_name: person.first_name,
+						last_name: person.last_name,
+						contact_number: person.contact_number,
+						full_name: `${person.first_name} ${person.last_name}`,
+						check_in_time: log.check_in_time,
+						is_first_timer: ministry === 'elevate' ? Boolean(person.is_first_timer) : false,
+						ministry
+					};
+				})
+				.filter((x): x is CheckedInAttendee => x !== null) || [];
 
 		return {
 			success: true,
@@ -493,7 +632,14 @@ export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facili
 		}
 
 		// Extract unique attendee IDs
-		const checkedInAttendeeIds = [...new Set(attendanceLogs.map((log) => log.attendee_id))];
+		// attendee_id can be null for B1G rows; filter nulls and dedupe
+		const checkedInAttendeeIds = [
+			...new Set(
+				attendanceLogs
+					.map((log) => log.attendee_id)
+					.filter((id): id is string => id !== null)
+			)
+		];
 
 		// Get all facilitators whose IDs are in the checked-in attendee list
 		// Filter by is_facilitating = true
@@ -706,7 +852,8 @@ export async function getFacilitatorWithAttendees(
 						contact_number: attendee.contact_number,
 						full_name: `${attendee.first_name} ${attendee.last_name}`,
 						check_in_time: log.check_in_time,
-						is_first_timer: attendee.is_first_timer
+						is_first_timer: attendee.is_first_timer,
+						ministry: 'elevate' as Ministry
 					};
 				}) || [];
 
@@ -806,7 +953,8 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 					contact_number: attendee.contact_number,
 					full_name: `${attendee.first_name} ${attendee.last_name}`,
 					check_in_time: log.check_in_time,
-					is_first_timer: attendee.is_first_timer
+					is_first_timer: attendee.is_first_timer,
+					ministry: 'elevate' as Ministry
 				});
 			}
 		});

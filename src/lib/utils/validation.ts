@@ -1,5 +1,11 @@
 import { EMAIL_REGEX } from './constants';
-import type { AttendeeRegistrationData, HeardAboutElevate } from '$lib/types/attendance';
+import type {
+	AttendeeRegistrationData,
+	B1GRegistrationData,
+	HeardAboutElevate
+} from '$lib/types/attendance';
+
+const PH_CONTACT_REGEX = /^\+639\d{9}$/;
 
 const HEARD_ABOUT_OPTIONS: HeardAboutElevate[] = [
 	'Facebook',
@@ -112,6 +118,41 @@ export function validateRegistrationForm(data: AttendeeRegistrationData): Valida
 	const emailValidation = validateEmail(data.email);
 	if (!emailValidation.isValid) {
 		return emailValidation;
+	}
+
+	return { isValid: true };
+}
+
+/**
+ * Validate B1G Eastwood registration form
+ */
+export function validateB1GRegistrationForm(data: B1GRegistrationData): ValidationResult {
+	if (!data.first_name?.trim()) {
+		return { isValid: false, error: 'First name is required.' };
+	}
+	if (!data.last_name?.trim()) {
+		return { isValid: false, error: 'Last name is required.' };
+	}
+
+	const month = Number(data.birth_month);
+	if (!Number.isInteger(month) || month < 1 || month > 12) {
+		return { isValid: false, error: 'Please select a valid birth month.' };
+	}
+
+	const year = Number(data.birth_year);
+	const currentYear = new Date().getFullYear();
+	if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+		return { isValid: false, error: 'Please select a valid birth year.' };
+	}
+
+	if (!data.contact_number?.trim()) {
+		return { isValid: false, error: 'Contact number is required.' };
+	}
+	if (!PH_CONTACT_REGEX.test(data.contact_number.trim())) {
+		return {
+			isValid: false,
+			error: 'Contact number must be a 10-digit PH mobile number (e.g., 9123456789).'
+		};
 	}
 
 	return { isValid: true };

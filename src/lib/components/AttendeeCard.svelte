@@ -1,19 +1,26 @@
 <script lang="ts">
-	import type { SearchResult } from '$lib/types/attendance';
+	import type { SearchResult, Ministry } from '$lib/types/attendance';
 	import { formatContactNumber } from '$lib/utils/formatting';
 
 	interface Props {
 		result: SearchResult;
-		onCheckIn: (attendeeId: string, firstName: string) => void;
+		onCheckIn: (attendeeId: string, firstName: string, ministry: Ministry) => void;
 		disabled?: boolean;
 	}
 
 	let { result, onCheckIn, disabled = false }: Props = $props();
+
+	const badgeLabel = $derived(result.ministry === 'b1g' ? 'B1G' : 'Elevate');
+	const badgeClass = $derived(
+		result.ministry === 'b1g'
+			? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+			: 'bg-red-100 text-red-700 border border-red-200'
+	);
 </script>
 
 <button
 	type="button"
-	onclick={() => onCheckIn(result.id, result.first_name)}
+	onclick={() => onCheckIn(result.id, result.first_name, result.ministry)}
 	{disabled}
 	class="w-full text-left p-6 border-2 border-gray-200 rounded-xl hover:border-red-300 hover:shadow-brand focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 bg-white"
 >
@@ -25,7 +32,12 @@
 				</svg>
 			</div>
 			<div>
-				<p class="font-bold text-gray-900 text-lg">{result.full_name}</p>
+				<div class="flex items-center gap-2">
+					<p class="font-bold text-gray-900 text-lg">{result.full_name}</p>
+					<span class="px-2 py-0.5 text-xs font-semibold rounded-full {badgeClass}">
+						{badgeLabel}
+					</span>
+				</div>
 				<p class="text-sm text-gray-600 font-medium mt-1">Contact: {formatContactNumber(result.contact_number)}</p>
 			</div>
 		</div>

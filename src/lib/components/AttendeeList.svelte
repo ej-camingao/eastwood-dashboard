@@ -52,8 +52,15 @@
 					class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
 				>
 					<div class="flex-1">
-						<div class="flex items-center gap-2">
+						<div class="flex items-center gap-2 flex-wrap">
 							<p class="font-medium text-gray-900">{attendee.full_name}</p>
+							<span
+								class="px-2 py-0.5 text-xs font-semibold rounded-full {attendee.ministry === 'b1g'
+									? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+									: 'bg-red-100 text-red-700 border border-red-200'}"
+							>
+								{attendee.ministry === 'b1g' ? 'B1G' : 'Elevate'}
+							</span>
 							{#if attendee.is_first_timer}
 								<span class="px-2 py-0.5 text-xs font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-full">
 									First timer

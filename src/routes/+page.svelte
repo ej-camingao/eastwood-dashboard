@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		registerNewAttendeeAndCheckIn,
+		registerNewB1GAttendeeAndCheckIn,
 		searchAttendees,
 		checkInAttendee,
 		getCheckedInAttendeesToday,
@@ -11,6 +12,8 @@
 	} from '$lib/services/attendance';
 	import type {
 		AttendeeRegistrationData,
+		B1GRegistrationData,
+		Ministry,
 		SearchResult,
 		CheckedInAttendee,
 		FacilitatorWithAttendees,
@@ -20,6 +23,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import TabButton from '$lib/components/TabButton.svelte';
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
+	import B1GRegistrationForm from '$lib/components/B1GRegistrationForm.svelte';
 	import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
 	import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -43,6 +47,16 @@
 		heard_about_elevate: ''
 	});
 
+	// B1G Eastwood registration form state
+	let b1gForm = $state<B1GRegistrationData>({
+		first_name: '',
+		last_name: '',
+		birth_month: '',
+		birth_year: '',
+		contact_number: '',
+		social_media_name: ''
+	});
+
 	// Search state for returning users
 	let searchQuery = $state('');
 	let searchResults = $state<SearchResult[]>([]);
@@ -59,7 +73,7 @@
 	let isLoadingFacilitators = $state(false);
 
 	// UI state
-	let activePath: 'new' | 'returning' | 'facilitators' = $state('new');
+	let activePath: 'new' | 'new_b1g' | 'returning' | 'facilitators' = $state('new');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
@@ -186,13 +200,13 @@
 	}
 
 	// Handle returning user check-in
-	async function handleCheckIn(attendeeId: string, firstName: string) {
+	async function handleCheckIn(attendeeId: string, firstName: string, ministry: Ministry = 'elevate') {
 		successMessage = '';
 		errorMessage = '';
 		isSubmitting = true;
 
 		try {
-			const response = await checkInAttendee(attendeeId);
+			const response = await checkInAttendee(attendeeId, ministry);
 
 			if (response.success) {
 				showSuccess(`Welcome back, ${firstName}! You are checked in.`);
@@ -269,6 +283,47 @@
 		registrationForm = { ...registrationForm, ...data };
 	}
 
+	function handleB1GFormUpdate(data: Partial<B1GRegistrationData>) {
+		b1gForm = { ...b1gForm, ...data };
+	}
+
+	async function handleB1GRegistration() {
+		successMessage = '';
+		errorMessage = '';
+
+		const contactNumber = b1gForm.contact_number.trim();
+		const formattedContactNumber = contactNumber.startsWith('+63')
+			? contactNumber
+			: `+63${contactNumber}`;
+
+		isSubmitting = true;
+		try {
+			const response = await registerNewB1GAttendeeAndCheckIn({
+				...b1gForm,
+				contact_number: formattedContactNumber
+			});
+
+			if (response.success) {
+				showSuccess('Welcome to B1G Eastwood! You are checked in.');
+				b1gForm = {
+					first_name: '',
+					last_name: '',
+					birth_month: '',
+					birth_year: '',
+					contact_number: '',
+					social_media_name: ''
+				};
+			} else {
+				showError(response.error || 'Registration failed. Please try again.');
+			}
+		} catch (error) {
+			showError('An unexpected error occurred. Please try again.');
+			console.error('B1G registration error:', error);
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
 	// Load facilitators
 	async function loadFacilitators() {
 		isLoadingFacilitators = true;
@@ -335,7 +390,7 @@
 	}
 
 	// Handle tab switching
-	function handleTabSwitch(path: 'new' | 'returning' | 'facilitators') {
+	function handleTabSwitch(path: 'new' | 'new_b1g' | 'returning' | 'facilitators') {
 		// Check password if switching to facilitators tab
 		if (path === 'facilitators' && !isPasswordAuthenticated) {
 			showPasswordModal = true;
@@ -378,9 +433,14 @@
 		<div class="flex justify-center mb-10">
 			<div class="inline-flex rounded-xl bg-white p-1.5 shadow-brand glass">
 				<TabButton
-					label="First-Time Registration"
+					label="Elevate Registration"
 					isActive={activePath === 'new'}
 					onClick={() => handleTabSwitch('new')}
+				/>
+				<TabButton
+					label="B1G Eastwood Registration"
+					isActive={activePath === 'new_b1g'}
+					onClick={() => handleTabSwitch('new_b1g')}
 				/>
 				<TabButton
 					label="Returning User Check-In"
@@ -400,13 +460,23 @@
 			<Alert type="error" message={errorMessage} />
 		{/if}
 
-		<!-- Path 1: First-Time Registration -->
+		<!-- Path 1: Elevate Registration -->
 		{#if activePath === 'new'}
 			<RegistrationForm
 				formData={registrationForm}
 				{isSubmitting}
 				onSubmit={handleRegistration}
 				onUpdate={handleFormUpdate}
+			/>
+		{/if}
+
+		<!-- Path 1b: B1G Eastwood Registration -->
+		{#if activePath === 'new_b1g'}
+			<B1GRegistrationForm
+				formData={b1gForm}
+				{isSubmitting}
+				onSubmit={handleB1GRegistration}
+				onUpdate={handleB1GFormUpdate}
 			/>
 		{/if}
 

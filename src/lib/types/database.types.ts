@@ -72,24 +72,60 @@ export interface Database {
 			attendance_log: {
 				Row: {
 					id: string;
-					attendee_id: string;
+					attendee_id: string | null;
+					b1g_attendee_id: string | null;
+					ministry: 'elevate' | 'b1g';
 					service_date: string;
 					check_in_time: string;
 					facilitator_id: string | null;
 				};
 				Insert: {
 					id?: string;
-					attendee_id: string;
+					attendee_id?: string | null;
+					b1g_attendee_id?: string | null;
+					ministry?: 'elevate' | 'b1g';
 					service_date?: string;
 					check_in_time?: string;
 					facilitator_id?: string | null;
 				};
 				Update: {
 					id?: string;
-					attendee_id?: string;
+					attendee_id?: string | null;
+					b1g_attendee_id?: string | null;
+					ministry?: 'elevate' | 'b1g';
 					service_date?: string;
 					check_in_time?: string;
 					facilitator_id?: string | null;
+				};
+				Relationships: [];
+			};
+			b1g_attendees: {
+				Row: {
+					id: string;
+					first_name: string;
+					last_name: string;
+					birthdate: string;
+					contact_number: string;
+					social_media_name: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					first_name: string;
+					last_name: string;
+					birthdate: string;
+					contact_number: string;
+					social_media_name?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					first_name?: string;
+					last_name?: string;
+					birthdate?: string;
+					contact_number?: string;
+					social_media_name?: string | null;
+					created_at?: string;
 				};
 				Relationships: [];
 			};

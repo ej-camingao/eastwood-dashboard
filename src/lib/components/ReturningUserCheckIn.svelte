@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SearchResult, CheckedInAttendee } from '$lib/types/attendance';
+	import type { SearchResult, CheckedInAttendee, Ministry } from '$lib/types/attendance';
 	import SearchInput from './SearchInput.svelte';
 	import AttendeeCard from './AttendeeCard.svelte';
 	import AttendeeList from './AttendeeList.svelte';
@@ -12,7 +12,7 @@
 		isLoadingCheckedIn: boolean;
 		isSubmitting: boolean;
 		onSearchInput: (value: string) => void;
-		onCheckIn: (attendeeId: string, firstName: string) => void;
+		onCheckIn: (attendeeId: string, firstName: string, ministry: Ministry) => void;
 		onRemoveCheckIn: (attendanceLogId: string, attendeeName: string) => void;
 		onRefresh: () => void;
 	}
