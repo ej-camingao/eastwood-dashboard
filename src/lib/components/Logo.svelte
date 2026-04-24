@@ -16,7 +16,7 @@
 
 <div class="flex justify-center {className}">
 	<img 
-		src="/eleb1g.png" 
+		src="/eleb1g-v2.png" 
 		alt="Elevate & B1G Eastwood" 
 		class="{sizeClasses[size]} w-auto object-contain"
 	/>
