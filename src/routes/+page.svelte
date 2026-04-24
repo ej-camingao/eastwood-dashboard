@@ -427,7 +427,12 @@
 			<div class="flex justify-center mb-6">
 				<Logo size="xl" />
 			</div>
-			<p class="text-xl text-gray-600 font-medium">Registration & Check-In System</p>
+			<div class="space-y-2 max-w-2xl mx-auto">
+				<p class="text-xl sm:text-2xl text-gray-800 font-medium leading-snug">
+					See you at May 2 for our ELEVATE x B1G Eastwood Service
+				</p>
+				<p class="text-lg sm:text-xl text-gray-600 font-semibold">Pre-register now!</p>
+			</div>
 			<div class="mt-4 w-24 h-1 bg-brand-gradient mx-auto rounded-full"></div>
 		</div>
 
