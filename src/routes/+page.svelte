@@ -25,8 +25,8 @@
 	import TabButton from '$lib/components/TabButton.svelte';
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
 	import B1GRegistrationForm from '$lib/components/B1GRegistrationForm.svelte';
-	import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
-	import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
+	// import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
+	// import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { validateRegistrationForm } from '$lib/utils/validation';
 
@@ -418,14 +418,6 @@
 		}
 	}
 
-	// Load checked-in attendees when returning tab is active
-	$effect(() => {
-		if (activePath === 'returning') {
-			loadCheckedInAttendees();
-		} else if (activePath === 'facilitators') {
-			loadFacilitators();
-		}
-	});
 </script>
 
 <div class="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -452,6 +444,7 @@
 					isActive={activePath === 'new_b1g'}
 					onClick={() => handleTabSwitch('new_b1g')}
 				/>
+				<!-- Temporarily hidden: Returning User + Facilitators
 				<TabButton
 					label="Returning User Check-In"
 					isActive={activePath === 'returning'}
@@ -462,6 +455,7 @@
 					isActive={activePath === 'facilitators'}
 					onClick={() => handleTabSwitch('facilitators')}
 				/>
+				-->
 			</div>
 		</div>
 
@@ -490,7 +484,7 @@
 			/>
 		{/if}
 
-		<!-- Path 2: Returning User Check-In -->
+		<!-- Path 2+3: Returning User + Facilitators (temporarily disabled)
 		{#if activePath === 'returning'}
 			<ReturningUserCheckIn
 				{searchQuery}
@@ -505,8 +499,6 @@
 				onRefresh={loadCheckedInAttendees}
 			/>
 		{/if}
-
-		<!-- Path 3: Facilitators -->
 		{#if activePath === 'facilitators' && isPasswordAuthenticated}
 			<FacilitatorTab
 				{facilitators}
@@ -517,78 +509,14 @@
 				disabled={isSubmitting}
 			/>
 		{/if}
+		-->
 	</div>
 
 	<!-- Success Toast (Centered) -->
 	<Toast type="success" message={successMessage} show={showSuccessToast} />
 
-	<!-- Password Modal -->
-	{#if showPasswordModal}
-		<div
-			class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
-			onclick={closePasswordModal}
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="password-modal-title"
-		>
-			<div
-				class="glass rounded-2xl shadow-brand-lg max-w-md w-full p-8 animate-slide-in-up"
-				onclick={(e) => e.stopPropagation()}
-			>
-				<div class="text-center mb-6">
-					<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-						<svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-						</svg>
-					</div>
-					<h3 id="password-modal-title" class="text-xl font-bold text-gray-900 mb-2">
-						Access Facilitators Panel
-					</h3>
-					<p class="text-gray-600">Enter the password to continue</p>
-				</div>
-
-				{#if passwordError}
-					<div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl animate-fade-in">
-						<p class="text-sm font-semibold text-red-600">{passwordError}</p>
-					</div>
-				{/if}
-
-				<div class="mb-6">
-					<label for="password-input" class="block text-sm font-semibold text-gray-900 mb-3">
-						Password
-					</label>
-					<input
-						type="password"
-						id="password-input"
-						bind:value={facilitatorPasswordInput}
-						onkeydown={(e) => {
-							if (e.key === 'Enter') {
-								handlePasswordSubmit();
-							}
-						}}
-						class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand font-medium"
-						placeholder="Enter password"
-						autofocus
-					/>
-				</div>
-
-				<div class="flex gap-3">
-					<button
-						type="button"
-						onclick={closePasswordModal}
-						class="flex-1 px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-xl hover:bg-gray-200 transition-all duration-300"
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={handlePasswordSubmit}
-						class="flex-1 px-6 py-3 text-sm font-bold text-white bg-brand-gradient rounded-xl hover:shadow-brand transition-all duration-300 transform hover:scale-105"
-					>
-						Submit
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<!--
+		Password modal (Facilitators tab) — re-enable: replace this comment with
+		{#if showPasswordModal} ... (full modal from git before "Comment out user-check-in") {/if}
+	-->
 </div>
