@@ -22,7 +22,7 @@
 
 <div class="glass rounded-2xl shadow-brand-lg p-8 animate-slide-in-up">
 	<div class="text-center mb-8">
-		<h2 class="text-3xl font-bold text-gray-900 mb-2">New Attendee Registration</h2>
+		<h2 class="text-3xl font-bold text-gray-900 mb-2">Elevate Registration</h2>
 		<div class="w-16 h-1 bg-brand-gradient mx-auto rounded-full"></div>
 	</div>
 
