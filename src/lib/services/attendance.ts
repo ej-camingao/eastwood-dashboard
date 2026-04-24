@@ -1280,3 +1280,80 @@ export async function assignFacilitatorToAttendee(
 	}
 }
 
+/**
+ * Auto-assign a facilitator to a B1G attendee based on gender (load balancing).
+ * Simpler than the Elevate variant: no default_facilitator_id and no attendees-table update.
+ * Only considers facilitators who are checked in today and match the attendee's gender.
+ * Counts both attendee_id and b1g_attendee_id rows so fair-share spans both ministries.
+ */
+export async function assignFacilitatorToB1GAttendee(
+	b1gAttendeeId: string,
+	gender: 'Male' | 'Female'
+): Promise<ServiceResponse<string | null>> {
+	try {
+		const today = new Date().toISOString().split('T')[0];
+
+		const facilitatorsResponse = await getCheckedInFacilitatorsByGender(gender);
+		if (!facilitatorsResponse.success || !facilitatorsResponse.data) {
+			return { success: true, data: null };
+		}
+
+		const facilitators = facilitatorsResponse.data;
+		if (facilitators.length === 0) {
+			return { success: true, data: null };
+		}
+
+		const { data: attendanceLogs, error: attendanceError } = await supabase
+			.from('attendance_log')
+			.select('facilitator_id, attendee_id, b1g_attendee_id')
+			.eq('service_date', today)
+			.not('facilitator_id', 'is', null);
+
+		if (attendanceError) {
+			return {
+				success: false,
+				error: attendanceError.message || 'Failed to load attendance counts.'
+			};
+		}
+
+		const facilitatorCounts = new Map<string, number>();
+		facilitators.forEach((f) => facilitatorCounts.set(f.id, 0));
+		attendanceLogs?.forEach((log: { facilitator_id: string | null }) => {
+			const facilitatorId = log.facilitator_id;
+			if (facilitatorId && facilitatorCounts.has(facilitatorId)) {
+				facilitatorCounts.set(facilitatorId, (facilitatorCounts.get(facilitatorId) || 0) + 1);
+			}
+		});
+
+		let selectedFacilitatorId = facilitators[0].id;
+		let minCount = facilitatorCounts.get(selectedFacilitatorId) ?? 0;
+		facilitatorCounts.forEach((count, facilitatorId) => {
+			if (count < minCount) {
+				minCount = count;
+				selectedFacilitatorId = facilitatorId;
+			}
+		});
+
+		const { error: logUpdateError } = await supabase
+			.from('attendance_log')
+			.update({ facilitator_id: selectedFacilitatorId })
+			.eq('b1g_attendee_id', b1gAttendeeId)
+			.eq('service_date', today);
+
+		if (logUpdateError) {
+			return {
+				success: false,
+				error: logUpdateError.message || 'Failed to assign facilitator.'
+			};
+		}
+
+		return { success: true, data: selectedFacilitatorId };
+	} catch (error) {
+		console.error('Error in assignFacilitatorToB1GAttendee:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+

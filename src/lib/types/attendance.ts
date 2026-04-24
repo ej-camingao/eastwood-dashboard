@@ -51,6 +51,8 @@ export interface AttendanceLog {
 	service_date: string; // ISO date string
 	check_in_time: string; // ISO timestamp
 	facilitator_id: string | null;
+	first_name: string | null;
+	last_name: string | null;
 }
 
 export interface B1GAttendee {
@@ -60,6 +62,7 @@ export interface B1GAttendee {
 	birthdate: string; // YYYY-MM-01 (day synthetic)
 	contact_number: string;
 	social_media_name: string | null;
+	gender: 'Male' | 'Female' | null;
 	created_at: string;
 }
 
@@ -70,6 +73,7 @@ export interface B1GRegistrationData {
 	birth_year: string;  // 'YYYY'
 	contact_number: string;
 	social_media_name?: string;
+	gender: 'Male' | 'Female';
 }
 
 export interface SearchResult {

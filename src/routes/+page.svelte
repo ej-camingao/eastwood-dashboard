@@ -54,7 +54,8 @@
 		birth_month: '',
 		birth_year: '',
 		contact_number: '',
-		social_media_name: ''
+		social_media_name: '',
+		gender: 'Male'
 	});
 
 	// Search state for returning users
@@ -311,7 +312,8 @@
 					birth_month: '',
 					birth_year: '',
 					contact_number: '',
-					social_media_name: ''
+					social_media_name: '',
+					gender: 'Male'
 				};
 			} else {
 				showError(response.error || 'Registration failed. Please try again.');

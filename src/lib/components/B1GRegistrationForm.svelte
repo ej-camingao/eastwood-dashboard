@@ -102,6 +102,20 @@
 			</FormField>
 		</div>
 
+		<FormField id="b1g_gender" label="Gender" required>
+			<select
+				id="b1g_gender"
+				value={formData.gender}
+				onchange={(e) => onUpdate({ gender: e.currentTarget.value as 'Male' | 'Female' })}
+				required
+				disabled={isSubmitting}
+				class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 font-medium"
+			>
+				<option value="Male">Male</option>
+				<option value="Female">Female</option>
+			</select>
+		</FormField>
+
 		<FormField
 			id="b1g_contact_number"
 			label="Contact Number"
