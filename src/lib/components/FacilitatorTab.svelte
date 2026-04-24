@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FacilitatorWithAttendees, CheckedInAttendee, Facilitator } from '$lib/types/attendance';
+	import type { FacilitatorWithAttendees, CheckedInAttendee, Facilitator, Ministry } from '$lib/types/attendance';
 	import FacilitatorCard from './FacilitatorCard.svelte';
 	import Alert from './Alert.svelte';
 
@@ -7,7 +7,11 @@
 		facilitators: FacilitatorWithAttendees[];
 		availableFacilitators: Facilitator[];
 		isLoading?: boolean;
-		onTransfer: (attendeeId: string, newFacilitatorId: string | null) => Promise<void>;
+		onTransfer: (
+			attendeeId: string,
+			newFacilitatorId: string | null,
+			ministry: Ministry
+		) => Promise<void>;
 		onRefresh: () => void;
 		disabled?: boolean;
 	}
@@ -19,6 +23,7 @@
 	let selectedAttendeeId = $state<string | null>(null);
 	let selectedAttendeeName = $state('');
 	let selectedAttendeeGender = $state<'Male' | 'Female'>('Male');
+	let selectedAttendeeMinistry = $state<Ministry>('elevate');
 	let isTransferring = $state(false);
 	let errorMessage = $state('');
 	let successMessage = $state('');
@@ -38,10 +43,16 @@
 			.sort((a, b) => a.first_name.localeCompare(b.first_name));
 	});
 
-	function handleTransferClick(attendeeId: string, attendeeName: string, attendeeGender: 'Male' | 'Female') {
+	function handleTransferClick(
+		attendeeId: string,
+		attendeeName: string,
+		attendeeGender: 'Male' | 'Female',
+		ministry: Ministry
+	) {
 		selectedAttendeeId = attendeeId;
 		selectedAttendeeName = attendeeName;
 		selectedAttendeeGender = attendeeGender;
+		selectedAttendeeMinistry = ministry;
 		showTransferModal = true;
 		errorMessage = '';
 		successMessage = '';
@@ -63,7 +74,7 @@
 		successMessage = '';
 
 		try {
-			await onTransfer(selectedAttendeeId, newFacilitatorId);
+			await onTransfer(selectedAttendeeId, newFacilitatorId, selectedAttendeeMinistry);
 			successMessage = `Successfully transferred ${selectedAttendeeName}.`;
 			setTimeout(() => {
 				closeTransferModal();

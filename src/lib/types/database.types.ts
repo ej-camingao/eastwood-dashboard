@@ -78,6 +78,8 @@ export interface Database {
 					service_date: string;
 					check_in_time: string;
 					facilitator_id: string | null;
+					first_name: string | null;
+					last_name: string | null;
 				};
 				Insert: {
 					id?: string;
@@ -87,6 +89,8 @@ export interface Database {
 					service_date?: string;
 					check_in_time?: string;
 					facilitator_id?: string | null;
+					first_name?: string | null;
+					last_name?: string | null;
 				};
 				Update: {
 					id?: string;
@@ -96,6 +100,8 @@ export interface Database {
 					service_date?: string;
 					check_in_time?: string;
 					facilitator_id?: string | null;
+					first_name?: string | null;
+					last_name?: string | null;
 				};
 				Relationships: [];
 			};
@@ -107,6 +113,7 @@ export interface Database {
 					birthdate: string;
 					contact_number: string;
 					social_media_name: string | null;
+					gender: 'Male' | 'Female' | null;
 					created_at: string;
 				};
 				Insert: {
@@ -116,6 +123,7 @@ export interface Database {
 					birthdate: string;
 					contact_number: string;
 					social_media_name?: string | null;
+					gender?: 'Male' | 'Female' | null;
 					created_at?: string;
 				};
 				Update: {
@@ -125,6 +133,7 @@ export interface Database {
 					birthdate?: string;
 					contact_number?: string;
 					social_media_name?: string | null;
+					gender?: 'Male' | 'Female' | null;
 					created_at?: string;
 				};
 				Relationships: [];

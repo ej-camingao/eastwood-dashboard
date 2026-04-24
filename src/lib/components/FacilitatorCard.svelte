@@ -1,10 +1,15 @@
 <script lang="ts">
-	import type { FacilitatorWithAttendees, CheckedInAttendee } from '$lib/types/attendance';
+	import type { FacilitatorWithAttendees, CheckedInAttendee, Ministry } from '$lib/types/attendance';
 	import { formatCheckInTime } from '$lib/utils/formatting';
 
 	interface Props {
 		facilitator: FacilitatorWithAttendees;
-		onTransfer: (attendeeId: string, attendeeName: string, attendeeGender: 'Male' | 'Female') => void;
+		onTransfer: (
+			attendeeId: string,
+			attendeeName: string,
+			attendeeGender: 'Male' | 'Female',
+			ministry: Ministry
+		) => void;
 		disabled?: boolean;
 	}
 
@@ -25,13 +30,18 @@
 
 	{#if facilitator.attendees.length > 0}
 		<div class="space-y-2 max-h-64 overflow-y-auto">
-			{#each facilitator.attendees as attendee (attendee.attendee_id)}
+			{#each facilitator.attendees as attendee (`${attendee.ministry}:${attendee.attendee_id}`)}
 				<div
 					class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
 				>
 					<div class="flex-1">
 						<div class="flex items-center gap-2">
 							<p class="font-medium text-gray-900">{attendee.full_name}</p>
+							{#if attendee.ministry === 'b1g'}
+								<span class="px-2 py-0.5 text-xs font-semibold text-white bg-gradient-to-r from-purple-500 to-purple-600 rounded-full">
+									B1G
+								</span>
+							{/if}
 							{#if attendee.is_first_timer}
 								<span class="px-2 py-0.5 text-xs font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-full">
 									First timer
@@ -42,7 +52,7 @@
 					</div>
 					<button
 						type="button"
-						onclick={() => onTransfer(attendee.attendee_id, attendee.full_name, facilitator.gender)}
+						onclick={() => onTransfer(attendee.attendee_id, attendee.full_name, facilitator.gender, attendee.ministry)}
 						disabled={disabled}
 						class="ml-4 px-3 py-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-200"
 						title="Transfer to different facilitator"

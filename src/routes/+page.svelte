@@ -8,7 +8,8 @@
 		removeCheckIn,
 		getAllFacilitatorsWithAttendees,
 		getFacilitators,
-		transferAttendee
+		transferAttendee,
+		transferB1GAttendee
 	} from '$lib/services/attendance';
 	import type {
 		AttendeeRegistrationData,
@@ -352,8 +353,15 @@
 	}
 
 	// Handle transferring an attendee
-	async function handleTransferAttendee(attendeeId: string, newFacilitatorId: string | null) {
-		const response = await transferAttendee(attendeeId, newFacilitatorId);
+	async function handleTransferAttendee(
+		attendeeId: string,
+		newFacilitatorId: string | null,
+		ministry: Ministry
+	) {
+		const response =
+			ministry === 'b1g'
+				? await transferB1GAttendee(attendeeId, newFacilitatorId)
+				: await transferAttendee(attendeeId, newFacilitatorId);
 		if (!response.success) {
 			throw new Error(response.error || 'Failed to transfer attendee.');
 		}

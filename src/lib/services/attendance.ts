@@ -115,7 +115,9 @@ export async function registerNewAttendeeAndCheckIn(
 		const today = new Date().toISOString().split('T')[0];
 		const { data: newLogRaw, error: attendanceError } = await supabase.from('attendance_log').insert({
 			attendee_id: attendee.id,
-			service_date: today
+			service_date: today,
+			first_name: attendee.first_name,
+			last_name: attendee.last_name
 		})
 			.select('*')
 			.single();
@@ -230,7 +232,9 @@ export async function registerNewB1GAttendeeAndCheckIn(
 		const { error: attendanceError } = await supabase.from('attendance_log').insert({
 			b1g_attendee_id: attendee.id,
 			ministry: 'b1g',
-			service_date: today
+			service_date: today,
+			first_name: attendee.first_name,
+			last_name: attendee.last_name
 		});
 
 		if (attendanceError) {
@@ -245,6 +249,14 @@ export async function registerNewB1GAttendeeAndCheckIn(
 				success: false,
 				error: `Attendee registered but check-in failed: ${attendanceError.message || 'Unknown error'}`
 			};
+		}
+
+		// Auto-assign a gender-matched facilitator (best-effort; failures logged).
+		if (data.gender === 'Male' || data.gender === 'Female') {
+			const assignResp = await assignFacilitatorToB1GAttendee(attendee.id, data.gender);
+			if (!assignResp.success) {
+				console.warn('B1G facilitator auto-assignment failed:', assignResp.error);
+			}
 		}
 
 		return { success: true, data: attendee };
@@ -379,11 +391,35 @@ export async function checkInAttendee(
 			};
 		}
 
+		// Fetch the person's name up-front so we can denormalize onto attendance_log
+		// (avoids needing a join when rendering historical logs).
+		const personTable = ministry === 'elevate' ? 'attendees' : 'b1g_attendees';
+		const { data: personRow } = await supabase
+			.from(personTable)
+			.select('first_name, last_name')
+			.eq('id', attendeeId)
+			.single();
+
+		const personFirstName = (personRow as { first_name?: string } | null)?.first_name ?? null;
+		const personLastName = (personRow as { last_name?: string } | null)?.last_name ?? null;
+
 		// Create attendance log entry with the appropriate FK column + ministry
 		const insertPayload =
 			ministry === 'elevate'
-				? { attendee_id: attendeeId, ministry: 'elevate' as const, service_date: today }
-				: { b1g_attendee_id: attendeeId, ministry: 'b1g' as const, service_date: today };
+				? {
+					attendee_id: attendeeId,
+					ministry: 'elevate' as const,
+					service_date: today,
+					first_name: personFirstName,
+					last_name: personLastName
+				}
+				: {
+					b1g_attendee_id: attendeeId,
+					ministry: 'b1g' as const,
+					service_date: today,
+					first_name: personFirstName,
+					last_name: personLastName
+				};
 
 		const { data: newLogRaw, error: attendanceError } = await supabase
 			.from('attendance_log')
@@ -405,13 +441,23 @@ export async function checkInAttendee(
 		}
 
 		if (ministry === 'b1g') {
-			// No facilitator auto-assignment for B1G.
 			const { data: b1gRaw } = await supabase
 				.from('b1g_attendees')
 				.select('*')
 				.eq('id', attendeeId)
 				.single();
-			return { success: true, data: b1gRaw ? asB1GAttendee(b1gRaw) : undefined };
+
+			const b1gAttendee = b1gRaw ? asB1GAttendee(b1gRaw) : undefined;
+
+			// Auto-assign a gender-matched facilitator when gender is known.
+			if (b1gAttendee && (b1gAttendee.gender === 'Male' || b1gAttendee.gender === 'Female')) {
+				const assignResp = await assignFacilitatorToB1GAttendee(attendeeId, b1gAttendee.gender);
+				if (!assignResp.success) {
+					console.warn('B1G facilitator auto-assignment failed:', assignResp.error);
+				}
+			}
+
+			return { success: true, data: b1gAttendee };
 		}
 
 		const newLog = newLogRaw ? asAttendanceLogRow(newLogRaw) : null;
@@ -959,6 +1005,52 @@ export async function getAllFacilitatorsWithAttendees(): Promise<
 			}
 		});
 
+		// Also fetch today's B1G rows with an assigned facilitator and merge them in.
+		const { data: b1gLogs, error: b1gError } = await supabase
+			.from('attendance_log')
+			.select(
+				`
+				id,
+				b1g_attendee_id,
+				check_in_time,
+				facilitator_id,
+				b1g_attendees:b1g_attendee_id (
+					id,
+					first_name,
+					last_name,
+					contact_number
+				)
+			`
+			)
+			.eq('service_date', today)
+			.not('facilitator_id', 'is', null)
+			.not('b1g_attendee_id', 'is', null)
+			.order('check_in_time', { ascending: false });
+
+		if (b1gError) {
+			console.warn('Failed to fetch B1G attendance logs for facilitators tab:', b1gError);
+		}
+
+		b1gLogs?.forEach((log: any) => {
+			const attendee = log.b1g_attendees;
+			const facilitatorId = log.facilitator_id;
+			if (!attendee || !facilitatorId) return;
+			if (!attendeesByFacilitator.has(facilitatorId)) {
+				attendeesByFacilitator.set(facilitatorId, []);
+			}
+			attendeesByFacilitator.get(facilitatorId)?.push({
+				attendance_log_id: log.id,
+				attendee_id: attendee.id,
+				first_name: attendee.first_name,
+				last_name: attendee.last_name,
+				contact_number: attendee.contact_number,
+				full_name: `${attendee.first_name} ${attendee.last_name}`,
+				check_in_time: log.check_in_time,
+				is_first_timer: false,
+				ministry: 'b1g' as Ministry
+			});
+		});
+
 		// Build result array - only include checked-in facilitators
 		const result: FacilitatorWithAttendees[] = facilitatorsResponse.data.map((facilitator) => ({
 			...facilitator,
@@ -1075,6 +1167,74 @@ export async function transferAttendee(
 		};
 	} catch (error) {
 		console.error('Error in transferAttendee:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Transfer a B1G attendee to a different facilitator for today's service.
+ * Validates gender match between the B1G attendee and the target facilitator when one is provided.
+ * Only touches `attendance_log` (B1G has no equivalent of `attendees.facilitator_id`).
+ */
+export async function transferB1GAttendee(
+	b1gAttendeeId: string,
+	newFacilitatorId: string | null
+): Promise<ServiceResponse<void>> {
+	try {
+		if (!b1gAttendeeId) {
+			return { success: false, error: 'Invalid B1G attendee ID.' };
+		}
+
+		if (newFacilitatorId) {
+			const { data: attendee, error: attendeeError } = await supabase
+				.from('b1g_attendees')
+				.select('gender')
+				.eq('id', b1gAttendeeId)
+				.single();
+
+			if (attendeeError || !attendee) {
+				return { success: false, error: 'B1G attendee not found.' };
+			}
+
+			const { data: facilitator, error: facilitatorError } = await supabase
+				.from('facilitators')
+				.select('gender')
+				.eq('id', newFacilitatorId)
+				.single();
+
+			if (facilitatorError || !facilitator) {
+				return { success: false, error: 'Facilitator not found.' };
+			}
+
+			// Only enforce gender match when the B1G attendee has a recorded gender.
+			if (attendee.gender && attendee.gender !== facilitator.gender) {
+				return {
+					success: false,
+					error: 'Cannot assign attendee to facilitator of different gender.'
+				};
+			}
+		}
+
+		const today = new Date().toISOString().split('T')[0];
+		const { error: updateError } = await supabase
+			.from('attendance_log')
+			.update({ facilitator_id: newFacilitatorId })
+			.eq('b1g_attendee_id', b1gAttendeeId)
+			.eq('service_date', today);
+
+		if (updateError) {
+			return {
+				success: false,
+				error: updateError.message || 'Failed to transfer B1G attendee.'
+			};
+		}
+
+		return { success: true };
+	} catch (error) {
+		console.error('Error in transferB1GAttendee:', error);
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
@@ -1214,22 +1374,23 @@ export async function assignFacilitatorToAttendee(
 		}
 
 		// Get count of assigned attendees for each facilitator (only checked in today, using attendance_log.facilitator_id)
-		const { data: attendanceLogs, error: attendanceError } = await supabase
+		// Include both Elevate (attendee_id) and B1G (b1g_attendee_id) rows so the per-facilitator
+		// load reflects the real count across ministries.
+		const { data: attendanceLogs } = await supabase
 			.from('attendance_log')
-			.select('facilitator_id, attendee_id')
+			.select('facilitator_id, attendee_id, b1g_attendee_id')
 			.eq('service_date', today)
 			.not('facilitator_id', 'is', null);
 
 		// Count attendees per facilitator (excluding facilitator attendees)
 		const facilitatorCounts = new Map<string, number>();
 		facilitators.forEach((f) => facilitatorCounts.set(f.id, 0));
-		attendanceLogs?.forEach((log: any) => {
+		attendanceLogs?.forEach((log: { facilitator_id: string | null; attendee_id: string | null; b1g_attendee_id: string | null }) => {
 			const facilitatorId = log.facilitator_id;
-			const attendeeIdFromLog = log.attendee_id;
-			// Only count if facilitatorId exists, is in our list, and attendee is not a facilitator
-			if (facilitatorId && facilitatorCounts.has(facilitatorId) && !facilitatorIds.has(attendeeIdFromLog)) {
-				facilitatorCounts.set(facilitatorId, (facilitatorCounts.get(facilitatorId) || 0) + 1);
-			}
+			if (!facilitatorId || !facilitatorCounts.has(facilitatorId)) return;
+			// Skip Elevate rows where the attendee is themselves a facilitator.
+			if (log.attendee_id && facilitatorIds.has(log.attendee_id)) return;
+			facilitatorCounts.set(facilitatorId, (facilitatorCounts.get(facilitatorId) || 0) + 1);
 		});
 
 		// Find facilitator with fewest attendees
