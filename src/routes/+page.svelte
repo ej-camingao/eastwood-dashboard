@@ -427,11 +427,19 @@
 			<div class="flex justify-center mb-6">
 				<Logo size="xl" />
 			</div>
-			<div class="space-y-2 max-w-2xl mx-auto">
-				<p class="text-xl sm:text-2xl text-gray-800 font-medium leading-snug">
-					See you at May 2 for our ELEVATE x B1G Eastwood Service
-				</p>
-				<p class="text-lg sm:text-xl text-gray-600 font-semibold">Pre-register now!</p>
+			<div class="space-y-2 w-full max-w-5xl mx-auto px-1 sm:px-0">
+				<div
+					class="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+				>
+					<p
+						class="whitespace-nowrap text-center mx-auto text-gray-800 font-medium leading-snug
+							text-[clamp(0.65rem,0.4rem+2.4vw,1.5rem)]
+							sm:text-2xl"
+					>
+						See you at May 2 for our ELEVATE x B1G Eastwood{'\u00A0'}Service
+					</p>
+				</div>
+				<p class="text-lg sm:text-xl text-gray-600 font-semibold text-center">Pre-register now!</p>
 			</div>
 			<div class="mt-4 w-24 h-1 bg-brand-gradient mx-auto rounded-full"></div>
 		</div>
