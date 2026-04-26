@@ -89,7 +89,7 @@
 	let isLoadingFacilitators = $state(false);
 
 	// UI state
-	let activePath: 'new' | 'new_b1g' | 'new_elv8' | 'returning' | 'facilitators' = $state('new');
+	let activePath: 'new' | 'new_b1g' | 'new_elv8' | 'returning' | 'facilitators' = $state('new_b1g');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
@@ -512,11 +512,13 @@
 		<!-- Enhanced Tab Navigation -->
 		<div class="flex justify-center mb-10">
 			<div class="inline-flex rounded-xl bg-white p-1.5 shadow-brand glass">
+				<!-- Temporarily hidden: Elevate Registration
 				<TabButton
 					label="Elevate Registration"
 					isActive={activePath === 'new'}
 					onClick={() => handleTabSwitch('new')}
 				/>
+				-->
 				<TabButton
 					label="B1G Eastwood Registration"
 					isActive={activePath === 'new_b1g'}
