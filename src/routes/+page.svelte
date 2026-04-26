@@ -2,6 +2,7 @@
 	import {
 		registerNewAttendeeAndCheckIn,
 		registerNewB1GAttendeeAndCheckIn,
+		registerNewELV8AttendeeAndCheckIn,
 		searchAttendees,
 		checkInAttendee,
 		getCheckedInAttendeesToday,
@@ -14,6 +15,7 @@
 	import type {
 		AttendeeRegistrationData,
 		B1GRegistrationData,
+		ELV8RegistrationData,
 		Ministry,
 		SearchResult,
 		CheckedInAttendee,
@@ -25,6 +27,7 @@
 	import TabButton from '$lib/components/TabButton.svelte';
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
 	import B1GRegistrationForm from '$lib/components/B1GRegistrationForm.svelte';
+	import ELV8RegistrationForm from '$lib/components/ELV8RegistrationForm.svelte';
 	// import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
 	// import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -59,6 +62,17 @@
 		gender: 'Male'
 	});
 
+	// ELEVATE (ELV8) registration form state
+	let elv8Form = $state<ELV8RegistrationData>({
+		first_name: '',
+		last_name: '',
+		birth_month: '',
+		birth_year: '',
+		contact_number: '',
+		social_media_name: '',
+		gender: 'Male'
+	});
+
 	// Search state for returning users
 	let searchQuery = $state('');
 	let searchResults = $state<SearchResult[]>([]);
@@ -75,7 +89,7 @@
 	let isLoadingFacilitators = $state(false);
 
 	// UI state
-	let activePath: 'new' | 'new_b1g' | 'returning' | 'facilitators' = $state('new');
+	let activePath: 'new' | 'new_b1g' | 'new_elv8' | 'returning' | 'facilitators' = $state('new');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
@@ -289,6 +303,10 @@
 		b1gForm = { ...b1gForm, ...data };
 	}
 
+	function handleELV8FormUpdate(data: Partial<ELV8RegistrationData>) {
+		elv8Form = { ...elv8Form, ...data };
+	}
+
 	async function handleB1GRegistration() {
 		successMessage = '';
 		errorMessage = '';
@@ -322,6 +340,44 @@
 		} catch (error) {
 			showError('An unexpected error occurred. Please try again.');
 			console.error('B1G registration error:', error);
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	async function handleELV8Registration() {
+		successMessage = '';
+		errorMessage = '';
+
+		const contactNumber = elv8Form.contact_number.trim();
+		const formattedContactNumber = contactNumber.startsWith('+63')
+			? contactNumber
+			: `+63${contactNumber}`;
+
+		isSubmitting = true;
+		try {
+			const response = await registerNewELV8AttendeeAndCheckIn({
+				...elv8Form,
+				contact_number: formattedContactNumber
+			});
+
+			if (response.success) {
+				showSuccess('Welcome to ELEVATE! You are checked in.');
+				elv8Form = {
+					first_name: '',
+					last_name: '',
+					birth_month: '',
+					birth_year: '',
+					contact_number: '',
+					social_media_name: '',
+					gender: 'Male'
+				};
+			} else {
+				showError(response.error || 'Registration failed. Please try again.');
+			}
+		} catch (error) {
+			showError('An unexpected error occurred. Please try again.');
+			console.error('ELV8 registration error:', error);
 		} finally {
 			isSubmitting = false;
 		}
@@ -400,7 +456,7 @@
 	}
 
 	// Handle tab switching
-	function handleTabSwitch(path: 'new' | 'new_b1g' | 'returning' | 'facilitators') {
+	function handleTabSwitch(path: 'new' | 'new_b1g' | 'new_elv8' | 'returning' | 'facilitators') {
 		// Check password if switching to facilitators tab
 		if (path === 'facilitators' && !isPasswordAuthenticated) {
 			showPasswordModal = true;
@@ -466,6 +522,11 @@
 					isActive={activePath === 'new_b1g'}
 					onClick={() => handleTabSwitch('new_b1g')}
 				/>
+				<TabButton
+					label="ELEVATE Registration"
+					isActive={activePath === 'new_elv8'}
+					onClick={() => handleTabSwitch('new_elv8')}
+				/>
 				<!-- Temporarily hidden: Returning User Check-In + Facilitators
 				<TabButton
 					label="Returning User Check-In"
@@ -503,6 +564,16 @@
 				{isSubmitting}
 				onSubmit={handleB1GRegistration}
 				onUpdate={handleB1GFormUpdate}
+			/>
+		{/if}
+
+		<!-- Path 1c: ELEVATE (ELV8) Registration -->
+		{#if activePath === 'new_elv8'}
+			<ELV8RegistrationForm
+				formData={elv8Form}
+				{isSubmitting}
+				onSubmit={handleELV8Registration}
+				onUpdate={handleELV8FormUpdate}
 			/>
 		{/if}
 

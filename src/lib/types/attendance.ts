@@ -2,7 +2,7 @@
 
 export type HeardAboutElevate = 'Facebook' | 'Friend' | 'Family' | 'Instagram' | 'Others';
 
-export type Ministry = 'elevate' | 'b1g';
+export type Ministry = 'elevate' | 'b1g' | 'elv8';
 
 export interface Attendee {
 	id: string;
@@ -47,6 +47,7 @@ export interface AttendanceLog {
 	id: string;
 	attendee_id: string | null;
 	b1g_attendee_id: string | null;
+	elv8_attendee_id: string | null;
 	ministry: Ministry;
 	service_date: string; // ISO date string
 	check_in_time: string; // ISO timestamp
@@ -67,6 +68,27 @@ export interface B1GAttendee {
 }
 
 export interface B1GRegistrationData {
+	first_name: string;
+	last_name: string;
+	birth_month: string; // '01'..'12'
+	birth_year: string;  // 'YYYY'
+	contact_number: string;
+	social_media_name?: string;
+	gender: 'Male' | 'Female';
+}
+
+export interface ELV8Attendee {
+	id: string;
+	first_name: string;
+	last_name: string;
+	birthdate: string; // YYYY-MM-01 (day synthetic)
+	contact_number: string;
+	social_media_name: string | null;
+	gender: 'Male' | 'Female' | null;
+	created_at: string;
+}
+
+export interface ELV8RegistrationData {
 	first_name: string;
 	last_name: string;
 	birth_month: string; // '01'..'12'

@@ -4,6 +4,8 @@ import type {
 	AttendeeRegistrationData,
 	B1GAttendee,
 	B1GRegistrationData,
+	ELV8Attendee,
+	ELV8RegistrationData,
 	Ministry,
 	ServiceResponse,
 	SearchResult,
@@ -12,7 +14,11 @@ import type {
 	FacilitatorWithAttendees
 } from '$lib/types/attendance';
 import type { Database } from '$lib/types/database.types';
-import { validateB1GRegistrationForm, validateRegistrationForm } from '$lib/utils/validation';
+import {
+	validateB1GRegistrationForm,
+	validateELV8RegistrationForm,
+	validateRegistrationForm
+} from '$lib/utils/validation';
 
 type AttendanceLogRow = Database['public']['Tables']['attendance_log']['Row'];
 
@@ -23,6 +29,10 @@ function asAttendee(data: unknown): Attendee {
 
 function asB1GAttendee(data: unknown): B1GAttendee {
 	return data as B1GAttendee;
+}
+
+function asELV8Attendee(data: unknown): ELV8Attendee {
+	return data as ELV8Attendee;
 }
 
 function asFacilitator(data: unknown): Facilitator {
@@ -262,6 +272,101 @@ export async function registerNewB1GAttendeeAndCheckIn(
 		return { success: true, data: attendee };
 	} catch (error) {
 		console.error('Error in registerNewB1GAttendeeAndCheckIn:', error);
+		if (error instanceof TypeError && error.message.includes('fetch')) {
+			return {
+				success: false,
+				error: 'Network error: Unable to connect to Supabase. Please check your internet connection and Supabase configuration.'
+			};
+		}
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Register a new ELEVATE (ELV8) attendee and check them in for today's service.
+ */
+export async function registerNewELV8AttendeeAndCheckIn(
+	data: ELV8RegistrationData
+): Promise<ServiceResponse<ELV8Attendee>> {
+	try {
+		const validation = validateELV8RegistrationForm(data);
+		if (!validation.isValid) {
+			return {
+				success: false,
+				error: validation.error || 'Please fill in all required fields.'
+			};
+		}
+
+		const birthdate = `${data.birth_year}-${data.birth_month}-01`;
+
+		const { data: insertedRaw, error: insertError } = await supabase
+			.from('elv8_attendees')
+			.insert({
+				first_name: data.first_name.trim(),
+				last_name: data.last_name.trim(),
+				birthdate,
+				contact_number: data.contact_number.trim(),
+				social_media_name: data.social_media_name?.trim() || null,
+				gender: data.gender
+			})
+			.select('*')
+			.single();
+
+		if (insertError) {
+			console.error('Supabase error (elv8_attendees insert):', insertError);
+			if (insertError.code === '42501' || insertError.message?.includes('permission denied')) {
+				return {
+					success: false,
+					error: 'Permission denied. Please check your Supabase Row Level Security policies.'
+				};
+			}
+			if (insertError.code === '42P01' || insertError.message?.includes('does not exist')) {
+				return {
+					success: false,
+					error: 'Database tables not found. Please run the SQL schema in your Supabase SQL Editor.'
+				};
+			}
+			return {
+				success: false,
+				error: insertError.message || 'Failed to register ELEVATE attendee.'
+			};
+		}
+
+		if (!insertedRaw) {
+			return { success: false, error: 'Failed to create ELEVATE attendee record.' };
+		}
+
+		const attendee = asELV8Attendee(insertedRaw);
+
+		const today = new Date().toISOString().split('T')[0];
+		const { error: attendanceError } = await supabase.from('attendance_log').insert({
+			elv8_attendee_id: attendee.id,
+			ministry: 'elv8',
+			service_date: today,
+			first_name: attendee.first_name,
+			last_name: attendee.last_name
+		});
+
+		if (attendanceError) {
+			console.error('Failed to create ELV8 attendance log:', attendanceError);
+			if (attendanceError.code === '23505') {
+				return {
+					success: false,
+					error: "This attendee is already checked in for today's service."
+				};
+			}
+			return {
+				success: false,
+				error: `Attendee registered but check-in failed: ${attendanceError.message || 'Unknown error'}`
+			};
+		}
+
+		return { success: true, data: attendee };
+	} catch (error) {
+		console.error('Error in registerNewELV8AttendeeAndCheckIn:', error);
 		if (error instanceof TypeError && error.message.includes('fetch')) {
 			return {
 				success: false,

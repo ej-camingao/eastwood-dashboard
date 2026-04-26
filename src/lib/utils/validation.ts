@@ -2,6 +2,7 @@ import { EMAIL_REGEX } from './constants';
 import type {
 	AttendeeRegistrationData,
 	B1GRegistrationData,
+	ELV8RegistrationData,
 	HeardAboutElevate
 } from '$lib/types/attendance';
 
@@ -127,6 +128,41 @@ export function validateRegistrationForm(data: AttendeeRegistrationData): Valida
  * Validate B1G Eastwood registration form
  */
 export function validateB1GRegistrationForm(data: B1GRegistrationData): ValidationResult {
+	if (!data.first_name?.trim()) {
+		return { isValid: false, error: 'First name is required.' };
+	}
+	if (!data.last_name?.trim()) {
+		return { isValid: false, error: 'Last name is required.' };
+	}
+
+	const month = Number(data.birth_month);
+	if (!Number.isInteger(month) || month < 1 || month > 12) {
+		return { isValid: false, error: 'Please select a valid birth month.' };
+	}
+
+	const year = Number(data.birth_year);
+	const currentYear = new Date().getFullYear();
+	if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+		return { isValid: false, error: 'Please select a valid birth year.' };
+	}
+
+	if (!data.contact_number?.trim()) {
+		return { isValid: false, error: 'Contact number is required.' };
+	}
+	if (!PH_CONTACT_REGEX.test(data.contact_number.trim())) {
+		return {
+			isValid: false,
+			error: 'Contact number must be a 10-digit PH mobile number (e.g., 9123456789).'
+		};
+	}
+
+	return { isValid: true };
+}
+
+/**
+ * Validate ELEVATE (ELV8) registration form
+ */
+export function validateELV8RegistrationForm(data: ELV8RegistrationData): ValidationResult {
 	if (!data.first_name?.trim()) {
 		return { isValid: false, error: 'First name is required.' };
 	}
