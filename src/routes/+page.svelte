@@ -568,16 +568,13 @@
 									>
 								</div>
 								<div
-									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200"
+									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-black border border-zinc-800"
 								>
 									<div class="flex items-center gap-2">
-										<span class="inline-block h-2.5 w-2.5 rounded-full bg-indigo-500"></span>
-										<span class="text-sm sm:text-base font-semibold text-indigo-800"
-											>ELEVATE</span
-										>
+										<span class="inline-block h-2.5 w-2.5 rounded-full bg-white/80"></span>
+										<span class="text-sm sm:text-base font-semibold text-white">ELEVATE</span>
 									</div>
-									<span
-										class="text-2xl sm:text-3xl font-extrabold text-indigo-700 tabular-nums"
+									<span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums"
 										>{elv8Count}</span
 									>
 								</div>
