@@ -1623,3 +1623,65 @@ export async function assignFacilitatorToB1GAttendee(
 	}
 }
 
+export interface EventRegistrant {
+	first_name: string;
+	last_name: string;
+	ministry: 'b1g' | 'elv8';
+}
+
+/**
+ * Fetch all B1G and ELV8 attendees registered between Apr 26, 2026 and May 1, 2026 (inclusive).
+ * Used by the event promo box on the home page.
+ */
+export async function getEventRegistrantNames(): Promise<ServiceResponse<EventRegistrant[]>> {
+	try {
+		const startDate = '2026-04-26';
+		const endExclusive = '2026-05-02';
+
+		const [b1gResp, elv8Resp] = await Promise.all([
+			supabase
+				.from('b1g_attendees')
+				.select('first_name, last_name, created_at')
+				.gte('created_at', startDate)
+				.lt('created_at', endExclusive)
+				.order('created_at', { ascending: true }),
+			supabase
+				.from('elv8_attendees')
+				.select('first_name, last_name, created_at')
+				.gte('created_at', startDate)
+				.lt('created_at', endExclusive)
+				.order('created_at', { ascending: true })
+		]);
+
+		if (b1gResp.error) {
+			return { success: false, error: b1gResp.error.message || 'Failed to fetch B1G registrants.' };
+		}
+		if (elv8Resp.error) {
+			return {
+				success: false,
+				error: elv8Resp.error.message || 'Failed to fetch ELV8 registrants.'
+			};
+		}
+
+		const b1gList: EventRegistrant[] = (b1gResp.data ?? []).map((row) => ({
+			first_name: row.first_name,
+			last_name: row.last_name,
+			ministry: 'b1g' as const
+		}));
+
+		const elv8List: EventRegistrant[] = (elv8Resp.data ?? []).map((row) => ({
+			first_name: row.first_name,
+			last_name: row.last_name,
+			ministry: 'elv8' as const
+		}));
+
+		return { success: true, data: [...b1gList, ...elv8List] };
+	} catch (error) {
+		console.error('Error in getEventRegistrantNames:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+

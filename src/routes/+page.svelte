@@ -10,7 +10,9 @@
 		getAllFacilitatorsWithAttendees,
 		getFacilitators,
 		transferAttendee,
-		transferB1GAttendee
+		transferB1GAttendee,
+		getEventRegistrantNames,
+		type EventRegistrant
 	} from '$lib/services/attendance';
 	import type {
 		AttendeeRegistrationData,
@@ -94,6 +96,23 @@
 	let successMessage = $state('');
 	let errorMessage = $state('');
 	let showSuccessToast = $state(false);
+
+	// Event registrants promo box state
+	let eventRegistrants = $state<EventRegistrant[]>([]);
+	let isLoadingRegistrants = $state(false);
+
+	$effect(() => {
+		(async () => {
+			isLoadingRegistrants = true;
+			const response = await getEventRegistrantNames();
+			isLoadingRegistrants = false;
+			if (response.success && response.data) {
+				eventRegistrants = response.data;
+			} else if (response.error) {
+				console.error('Failed to load event registrants:', response.error);
+			}
+		})();
+	});
 
 	// Password protection for facilitators tab
 	const FACILITATOR_PASSWORD = 'Matt281920';
@@ -507,6 +526,64 @@
 				<p class="text-lg sm:text-xl text-gray-600 font-semibold text-center">Pre-register now!</p>
 			</div>
 			<div class="mt-4 w-24 h-1 bg-brand-gradient mx-auto rounded-full"></div>
+		</div>
+
+		<!-- Event Attendees Promo Box -->
+		<div class="mb-8 animate-slide-in-up">
+			<div class="relative max-w-4xl mx-auto">
+				<div class="absolute inset-0 bg-brand-gradient rounded-2xl blur-lg opacity-30"></div>
+				<div
+					class="relative rounded-2xl p-[2px] bg-brand-gradient shadow-brand"
+				>
+					<div class="rounded-2xl bg-white/95 glass p-5 sm:p-6">
+						<div class="flex items-center gap-2 mb-3">
+							<span class="inline-flex h-2.5 w-2.5 rounded-full bg-brand-gradient animate-pulse"></span>
+							<h2 class="text-base sm:text-lg font-bold text-gray-800 tracking-tight">
+								This event will be attended by:
+							</h2>
+							{#if !isLoadingRegistrants && eventRegistrants.length > 0}
+								<span
+									class="ml-auto text-xs sm:text-sm font-semibold text-white bg-brand-gradient px-2.5 py-0.5 rounded-full"
+								>
+									{eventRegistrants.length}
+								</span>
+							{/if}
+						</div>
+
+						{#if isLoadingRegistrants}
+							<div class="flex flex-wrap gap-2">
+								{#each Array(6) as _}
+									<div class="h-7 w-24 rounded-full bg-gray-200 animate-pulse"></div>
+								{/each}
+							</div>
+						{:else if eventRegistrants.length === 0}
+							<p class="text-sm text-gray-500 italic">
+								No registrations yet. Be the first to pre-register!
+							</p>
+						{:else}
+							<div class="flex flex-wrap gap-2">
+								{#each eventRegistrants as registrant}
+									<span
+										class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-medium shadow-sm transition-transform hover:scale-105 {registrant.ministry ===
+										'b1g'
+											? 'bg-pink-100 text-pink-800 border border-pink-200'
+											: 'bg-indigo-100 text-indigo-800 border border-indigo-200'}"
+									>
+										<span
+											class="inline-block h-1.5 w-1.5 rounded-full {registrant.ministry ===
+											'b1g'
+												? 'bg-pink-500'
+												: 'bg-indigo-500'}"
+										></span>
+										{registrant.first_name}
+										{registrant.last_name}
+									</span>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Enhanced Tab Navigation -->
