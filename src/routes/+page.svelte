@@ -530,55 +530,65 @@
 
 		<!-- Event Attendees Promo Box -->
 		<div class="mb-8 animate-slide-in-up">
-			<div class="relative max-w-4xl mx-auto">
+			<div class="relative max-w-3xl mx-auto">
 				<div class="absolute inset-0 bg-brand-gradient rounded-2xl blur-lg opacity-30"></div>
-				<div
-					class="relative rounded-2xl p-[2px] bg-brand-gradient shadow-brand"
-				>
+				<div class="relative rounded-2xl p-[2px] bg-brand-gradient shadow-brand">
 					<div class="rounded-2xl bg-white/95 glass p-5 sm:p-6">
-						<div class="flex items-center gap-2 mb-3">
-							<span class="inline-flex h-2.5 w-2.5 rounded-full bg-brand-gradient animate-pulse"></span>
+						<div class="flex items-center gap-2 mb-4">
+							<span
+								class="inline-flex h-2.5 w-2.5 rounded-full bg-brand-gradient animate-pulse"
+							></span>
 							<h2 class="text-base sm:text-lg font-bold text-gray-800 tracking-tight">
 								This event will be attended by:
 							</h2>
-							{#if !isLoadingRegistrants && eventRegistrants.length > 0}
-								<span
-									class="ml-auto text-xs sm:text-sm font-semibold text-white bg-brand-gradient px-2.5 py-0.5 rounded-full"
-								>
-									{eventRegistrants.length}
-								</span>
-							{/if}
 						</div>
 
 						{#if isLoadingRegistrants}
-							<div class="flex flex-wrap gap-2">
-								{#each Array(6) as _}
-									<div class="h-7 w-24 rounded-full bg-gray-200 animate-pulse"></div>
-								{/each}
+							<div class="flex items-center justify-center py-4">
+								<div
+									class="h-12 w-32 rounded-lg bg-gray-200 animate-pulse"
+								></div>
 							</div>
-						{:else if eventRegistrants.length === 0}
-							<p class="text-sm text-gray-500 italic">
-								No registrations yet. Be the first to pre-register!
-							</p>
 						{:else}
-							<div class="flex flex-wrap gap-2">
-								{#each eventRegistrants as registrant}
+							{@const b1gCount = eventRegistrants.filter((r) => r.ministry === 'b1g').length}
+							{@const elv8Count = eventRegistrants.filter((r) => r.ministry === 'elv8').length}
+							<div class="flex flex-col sm:flex-row items-stretch gap-3">
+								<div
+									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200"
+								>
+									<div class="flex items-center gap-2">
+										<span class="inline-block h-2.5 w-2.5 rounded-full bg-pink-500"></span>
+										<span class="text-sm sm:text-base font-semibold text-pink-800"
+											>B1G Eastwood</span
+										>
+									</div>
 									<span
-										class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-medium shadow-sm transition-transform hover:scale-105 {registrant.ministry ===
-										'b1g'
-											? 'bg-pink-100 text-pink-800 border border-pink-200'
-											: 'bg-indigo-100 text-indigo-800 border border-indigo-200'}"
+										class="text-2xl sm:text-3xl font-extrabold text-pink-700 tabular-nums"
+										>{b1gCount}</span
 									>
-										<span
-											class="inline-block h-1.5 w-1.5 rounded-full {registrant.ministry ===
-											'b1g'
-												? 'bg-pink-500'
-												: 'bg-indigo-500'}"
-										></span>
-										{registrant.first_name}
-										{registrant.last_name}
-									</span>
-								{/each}
+								</div>
+								<div
+									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200"
+								>
+									<div class="flex items-center gap-2">
+										<span class="inline-block h-2.5 w-2.5 rounded-full bg-indigo-500"></span>
+										<span class="text-sm sm:text-base font-semibold text-indigo-800"
+											>ELEVATE</span
+										>
+									</div>
+									<span
+										class="text-2xl sm:text-3xl font-extrabold text-indigo-700 tabular-nums"
+										>{elv8Count}</span
+									>
+								</div>
+								<div
+									class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-brand-gradient text-white shadow-brand sm:min-w-[140px]"
+								>
+									<span class="text-sm sm:text-base font-semibold">Total</span>
+									<span class="text-2xl sm:text-3xl font-extrabold tabular-nums"
+										>{eventRegistrants.length}</span
+									>
+								</div>
 							</div>
 						{/if}
 					</div>
