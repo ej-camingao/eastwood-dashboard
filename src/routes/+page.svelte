@@ -554,18 +554,13 @@
 							{@const elv8Count = eventRegistrants.filter((r) => r.ministry === 'elv8').length}
 							<div class="flex flex-col sm:flex-row items-stretch gap-3">
 								<div
-									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200"
+									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-brand-gradient text-white shadow-brand"
 								>
 									<div class="flex items-center gap-2">
-										<span class="inline-block h-2.5 w-2.5 rounded-full bg-pink-500"></span>
-										<span class="text-sm sm:text-base font-semibold text-pink-800"
-											>B1G Eastwood</span
-										>
+										<span class="inline-block h-2.5 w-2.5 rounded-full bg-white/80"></span>
+										<span class="text-sm sm:text-base font-semibold">B1G Eastwood</span>
 									</div>
-									<span
-										class="text-2xl sm:text-3xl font-extrabold text-pink-700 tabular-nums"
-										>{b1gCount}</span
-									>
+									<span class="text-2xl sm:text-3xl font-extrabold tabular-nums">{b1gCount}</span>
 								</div>
 								<div
 									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-black border border-zinc-800"
@@ -579,10 +574,14 @@
 									>
 								</div>
 								<div
-									class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-brand-gradient text-white shadow-brand sm:min-w-[140px]"
+									class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200 sm:min-w-[140px]"
 								>
-									<span class="text-sm sm:text-base font-semibold">Total</span>
-									<span class="text-2xl sm:text-3xl font-extrabold tabular-nums"
+									<div class="flex items-center gap-2">
+										<span class="inline-block h-2.5 w-2.5 rounded-full bg-pink-500"></span>
+										<span class="text-sm sm:text-base font-semibold text-pink-800">Total</span>
+									</div>
+									<span
+										class="text-2xl sm:text-3xl font-extrabold text-pink-700 tabular-nums"
 										>{eventRegistrants.length}</span
 									>
 								</div>
