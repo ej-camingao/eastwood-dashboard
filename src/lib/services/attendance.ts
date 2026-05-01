@@ -1718,6 +1718,141 @@ export async function promoteAttendeeToFacilitator(
 	}
 }
 
+/**
+ * Demote a facilitator: flip `is_facilitating` off, clear today's downline assignments,
+ * clear persistent Elevate facilitator columns pointing to them, and auto-reassign the
+ * demoted person under another same-gender facilitator (ministry detected from today's
+ * attendance_log row).
+ */
+export async function demoteFacilitator(
+	facilitatorId: string
+): Promise<ServiceResponse<{ assignedFacilitatorId: string | null }>> {
+	try {
+		if (!facilitatorId) {
+			return { success: false, error: 'Invalid facilitator ID.' };
+		}
+
+		const { data: facilitatorRow, error: facilitatorError } = await supabase
+			.from('facilitators')
+			.select('gender, first_name, last_name')
+			.eq('id', facilitatorId)
+			.single();
+
+		if (facilitatorError || !facilitatorRow) {
+			return {
+				success: false,
+				error: facilitatorError?.message || 'Facilitator not found.'
+			};
+		}
+
+		const facilitator = facilitatorRow as {
+			gender: string | null;
+			first_name: string;
+			last_name: string;
+		};
+
+		if (facilitator.gender !== 'Male' && facilitator.gender !== 'Female') {
+			return {
+				success: false,
+				error: 'Cannot demote facilitator: gender is missing or invalid.'
+			};
+		}
+		const gender: 'Male' | 'Female' = facilitator.gender;
+
+		// Detect ministry from today's attendance_log (Elevate first, then B1G).
+		const today = new Date().toISOString().split('T')[0];
+		let ministry: Ministry | null = null;
+
+		const { data: elevateLog } = await supabase
+			.from('attendance_log')
+			.select('id')
+			.eq('attendee_id', facilitatorId)
+			.eq('service_date', today)
+			.maybeSingle();
+
+		if (elevateLog) {
+			ministry = 'elevate';
+		} else {
+			const { data: b1gLog } = await supabase
+				.from('attendance_log')
+				.select('id')
+				.eq('b1g_attendee_id', facilitatorId)
+				.eq('service_date', today)
+				.maybeSingle();
+			if (b1gLog) ministry = 'b1g';
+		}
+
+		// Soft-demote: keep the row so historical joins survive.
+		const { error: updateError } = await supabase
+			.from('facilitators')
+			.update({ is_facilitating: false })
+			.eq('id', facilitatorId);
+
+		if (updateError) {
+			return {
+				success: false,
+				error: updateError.message || 'Failed to demote facilitator.'
+			};
+		}
+
+		// Clear today's downline assignments pointing to this facilitator.
+		const { error: clearLogError } = await supabase
+			.from('attendance_log')
+			.update({ facilitator_id: null })
+			.eq('facilitator_id', facilitatorId)
+			.eq('service_date', today);
+
+		if (clearLogError) {
+			console.warn('Failed to clear today\'s attendance_log.facilitator_id:', clearLogError);
+		}
+
+		// Best-effort: clear persistent Elevate columns referencing the demoted facilitator.
+		const { error: clearAttendeesError } = await supabase
+			.from('attendees')
+			.update({ facilitator_id: null })
+			.eq('facilitator_id', facilitatorId);
+		if (clearAttendeesError) {
+			console.warn('Failed to clear attendees.facilitator_id:', clearAttendeesError);
+		}
+
+		const { error: clearDefaultError } = await supabase
+			.from('attendees')
+			.update({ default_facilitator_id: null })
+			.eq('default_facilitator_id', facilitatorId);
+		if (clearDefaultError) {
+			console.warn('Failed to clear attendees.default_facilitator_id:', clearDefaultError);
+		}
+
+		// Auto-assign the demoted person under another same-gender facilitator.
+		// `isFacilitator()` now returns false because is_facilitating was flipped above,
+		// so assignFacilitatorToAttendee will not short-circuit.
+		let assignedFacilitatorId: string | null = null;
+		if (ministry === 'elevate') {
+			const resp = await assignFacilitatorToAttendee(facilitatorId, gender);
+			if (resp.success) {
+				assignedFacilitatorId = resp.data ?? null;
+			} else {
+				console.warn('Auto-assign after demotion (elevate) failed:', resp.error);
+			}
+		} else if (ministry === 'b1g') {
+			const resp = await assignFacilitatorToB1GAttendee(facilitatorId, gender);
+			if (resp.success) {
+				assignedFacilitatorId = resp.data ?? null;
+			} else {
+				console.warn('Auto-assign after demotion (b1g) failed:', resp.error);
+			}
+		}
+
+		return { success: true, data: { assignedFacilitatorId } };
+	} catch (error) {
+		console.error('Error in demoteFacilitator:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
 export interface EventRegistrant {
 	first_name: string;
 	last_name: string;

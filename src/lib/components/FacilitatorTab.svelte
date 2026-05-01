@@ -13,6 +13,7 @@
 			ministry: Ministry
 		) => Promise<void>;
 		onMakeFacilitator: (attendeeId: string, ministry: Ministry) => Promise<void>;
+		onDemote: (facilitatorId: string) => Promise<void>;
 		onRefresh: () => void;
 		disabled?: boolean;
 	}
@@ -23,6 +24,7 @@
 		isLoading = false,
 		onTransfer,
 		onMakeFacilitator,
+		onDemote,
 		onRefresh,
 		disabled = false
 	}: Props = $props();
@@ -182,6 +184,7 @@
 							<FacilitatorCard
 								{facilitator}
 								onTransfer={handleTransferClick}
+								{onDemote}
 								{disabled}
 							/>
 						{/each}
@@ -198,6 +201,7 @@
 							<FacilitatorCard
 								{facilitator}
 								onTransfer={handleTransferClick}
+								{onDemote}
 								{disabled}
 							/>
 						{/each}

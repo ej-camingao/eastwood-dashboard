@@ -10,7 +10,8 @@
 		getFacilitators,
 		transferAttendee,
 		transferB1GAttendee,
-		promoteAttendeeToFacilitator
+		promoteAttendeeToFacilitator,
+		demoteFacilitator
 	} from '$lib/services/attendance';
 	import { onMount } from 'svelte';
 	import type {
@@ -391,6 +392,15 @@
 		await loadCheckedInAttendees();
 	}
 
+	async function handleDemoteFacilitator(facilitatorId: string) {
+		const response = await demoteFacilitator(facilitatorId);
+		if (!response.success) {
+			throw new Error(response.error || 'Failed to demote facilitator.');
+		}
+		await loadFacilitators();
+		await loadCheckedInAttendees();
+	}
+
 	// Password handling functions
 	function handlePasswordSubmit() {
 		if (facilitatorPasswordInput === FACILITATOR_PASSWORD) {
@@ -610,6 +620,7 @@
 				isLoading={isLoadingFacilitators}
 				onTransfer={handleTransferAttendee}
 				onMakeFacilitator={handleMakeFacilitator}
+				onDemote={handleDemoteFacilitator}
 				onRefresh={loadFacilitators}
 				disabled={isSubmitting}
 			/>

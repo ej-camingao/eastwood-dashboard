@@ -10,12 +10,34 @@
 			attendeeGender: 'Male' | 'Female',
 			ministry: Ministry
 		) => void;
+		onDemote: (facilitatorId: string) => Promise<void>;
 		disabled?: boolean;
 	}
 
-	let { facilitator, onTransfer, disabled = false }: Props = $props();
+	let { facilitator, onTransfer, onDemote, disabled = false }: Props = $props();
 
 	const fullName = `${facilitator.first_name} ${facilitator.last_name}`;
+
+	let isDemoting = $state(false);
+
+	async function handleDemoteClick() {
+		if (
+			!confirm(
+				`Remove ${fullName} as a facilitator? Their current downlines will be re-balanced and ${facilitator.first_name} will be assigned to another facilitator's group.`
+			)
+		) {
+			return;
+		}
+
+		isDemoting = true;
+		try {
+			await onDemote(facilitator.id);
+		} catch (e) {
+			alert(e instanceof Error ? e.message : 'Failed to remove facilitator.');
+		} finally {
+			isDemoting = false;
+		}
+	}
 </script>
 
 <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
@@ -26,6 +48,15 @@
 				{facilitator.gender} Facilitator • {facilitator.attendee_count} attendee{facilitator.attendee_count !== 1 ? 's' : ''}
 			</p>
 		</div>
+		<button
+			type="button"
+			onclick={handleDemoteClick}
+			disabled={disabled || isDemoting}
+			class="ml-4 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
+			title="Remove as facilitator and reassign to another group"
+		>
+			{isDemoting ? 'Removing...' : 'Remove as Facilitator'}
+		</button>
 	</div>
 
 	{#if facilitator.attendees.length > 0}
