@@ -9,7 +9,8 @@
 		getAllFacilitatorsWithAttendees,
 		getFacilitators,
 		transferAttendee,
-		transferB1GAttendee
+		transferB1GAttendee,
+		promoteAttendeeToFacilitator
 	} from '$lib/services/attendance';
 	import { onMount } from 'svelte';
 	import type {
@@ -380,6 +381,16 @@
 		await loadFacilitators();
 	}
 
+	// Promote a checked-in attendee into a facilitator
+	async function handleMakeFacilitator(attendeeId: string, ministry: Ministry) {
+		const response = await promoteAttendeeToFacilitator(attendeeId, ministry);
+		if (!response.success) {
+			throw new Error(response.error || 'Failed to make facilitator.');
+		}
+		await loadFacilitators();
+		await loadCheckedInAttendees();
+	}
+
 	// Password handling functions
 	function handlePasswordSubmit() {
 		if (facilitatorPasswordInput === FACILITATOR_PASSWORD) {
@@ -538,7 +549,7 @@
 					onClick={() => handleTabSwitch('new_b1g')}
 				/>
 				<TabButton
-					label="Returning User Check-In"
+					label="Check-In"
 					isActive={activePath === 'returning'}
 					onClick={() => handleTabSwitch('returning')}
 				/>
@@ -598,6 +609,7 @@
 				{availableFacilitators}
 				isLoading={isLoadingFacilitators}
 				onTransfer={handleTransferAttendee}
+				onMakeFacilitator={handleMakeFacilitator}
 				onRefresh={loadFacilitators}
 				disabled={isSubmitting}
 			/>

@@ -12,12 +12,20 @@
 			newFacilitatorId: string | null,
 			ministry: Ministry
 		) => Promise<void>;
+		onMakeFacilitator: (attendeeId: string, ministry: Ministry) => Promise<void>;
 		onRefresh: () => void;
 		disabled?: boolean;
 	}
 
-	let { facilitators, availableFacilitators, isLoading = false, onTransfer, onRefresh, disabled = false }: Props =
-		$props();
+	let {
+		facilitators,
+		availableFacilitators,
+		isLoading = false,
+		onTransfer,
+		onMakeFacilitator,
+		onRefresh,
+		disabled = false
+	}: Props = $props();
 
 	let showTransferModal = $state(false);
 	let selectedAttendeeId = $state<string | null>(null);
@@ -82,6 +90,34 @@
 			}, 1000);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to transfer attendee.';
+		} finally {
+			isTransferring = false;
+		}
+	}
+
+	async function handleMakeFacilitatorClick() {
+		if (!selectedAttendeeId) return;
+		if (
+			!confirm(
+				`Make ${selectedAttendeeName} a facilitator? They will be removed from their current facilitator's group.`
+			)
+		) {
+			return;
+		}
+
+		isTransferring = true;
+		errorMessage = '';
+		successMessage = '';
+
+		try {
+			await onMakeFacilitator(selectedAttendeeId, selectedAttendeeMinistry);
+			successMessage = `${selectedAttendeeName} is now a facilitator.`;
+			setTimeout(() => {
+				closeTransferModal();
+				onRefresh();
+			}, 1000);
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to make facilitator.';
 		} finally {
 			isTransferring = false;
 		}
@@ -213,6 +249,17 @@
 						{/each}
 					</select>
 				</div>
+
+				<div class="my-4 border-t border-gray-200"></div>
+
+				<button
+					type="button"
+					onclick={handleMakeFacilitatorClick}
+					disabled={isTransferring || disabled}
+					class="w-full px-4 py-2 mb-4 text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					Make into Facilitator
+				</button>
 
 				<div class="flex justify-end gap-3">
 					<button

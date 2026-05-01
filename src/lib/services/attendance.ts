@@ -1623,6 +1623,101 @@ export async function assignFacilitatorToB1GAttendee(
 	}
 }
 
+/**
+ * Promote an attendee (Elevate or B1G) to be a facilitator.
+ * Reuses the attendee's UUID as `facilitators.id` so existing detection by
+ * `facilitators.id IN (attendance_log.attendee_id)` keeps working.
+ */
+export async function promoteAttendeeToFacilitator(
+	attendeeId: string,
+	ministry: Ministry
+): Promise<ServiceResponse<Facilitator>> {
+	try {
+		if (!attendeeId) {
+			return { success: false, error: 'Invalid attendee ID.' };
+		}
+
+		const sourceTable = ministry === 'b1g' ? 'b1g_attendees' : 'attendees';
+		const { data: personRow, error: personError } = await supabase
+			.from(sourceTable)
+			.select('first_name, last_name, gender')
+			.eq('id', attendeeId)
+			.single();
+
+		if (personError || !personRow) {
+			return {
+				success: false,
+				error: personError?.message || 'Attendee not found.'
+			};
+		}
+
+		const person = personRow as { first_name: string; last_name: string; gender: string | null };
+		if (!person.gender) {
+			return {
+				success: false,
+				error: 'Cannot make facilitator: gender is missing.'
+			};
+		}
+
+		const { data: upsertedRaw, error: upsertError } = await supabase
+			.from('facilitators')
+			.upsert(
+				{
+					id: attendeeId,
+					first_name: person.first_name,
+					last_name: person.last_name,
+					gender: person.gender,
+					is_facilitating: true
+				},
+				{ onConflict: 'id' }
+			)
+			.select('*')
+			.single();
+
+		if (upsertError || !upsertedRaw) {
+			return {
+				success: false,
+				error: upsertError?.message || 'Failed to promote attendee to facilitator.'
+			};
+		}
+
+		const facilitator = asFacilitator(upsertedRaw);
+
+		// Unassign as a downline from any current facilitator for today.
+		const today = new Date().toISOString().split('T')[0];
+		const personColumn = ministry === 'b1g' ? 'b1g_attendee_id' : 'attendee_id';
+		const { error: logUpdateError } = await supabase
+			.from('attendance_log')
+			.update({ facilitator_id: null })
+			.eq(personColumn, attendeeId)
+			.eq('service_date', today);
+
+		if (logUpdateError) {
+			console.warn('Failed to clear attendance_log.facilitator_id on promotion:', logUpdateError);
+		}
+
+		// For Elevate, also clear persistent assignment columns (best-effort).
+		if (ministry !== 'b1g') {
+			const { error: attendeeUpdateError } = await supabase
+				.from('attendees')
+				.update({ facilitator_id: null, default_facilitator_id: null })
+				.eq('id', attendeeId);
+
+			if (attendeeUpdateError) {
+				console.warn('Failed to clear attendees facilitator columns on promotion:', attendeeUpdateError);
+			}
+		}
+
+		return { success: true, data: facilitator };
+	} catch (error) {
+		console.error('Error in promoteAttendeeToFacilitator:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
 export interface EventRegistrant {
 	first_name: string;
 	last_name: string;
