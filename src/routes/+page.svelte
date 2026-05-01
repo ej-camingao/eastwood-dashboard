@@ -2,7 +2,6 @@
 	import {
 		registerNewAttendeeAndCheckIn,
 		registerNewB1GAttendeeAndCheckIn,
-		registerNewELV8AttendeeAndCheckIn,
 		searchAttendees,
 		checkInAttendee,
 		getCheckedInAttendeesToday,
@@ -10,14 +9,12 @@
 		getAllFacilitatorsWithAttendees,
 		getFacilitators,
 		transferAttendee,
-		transferB1GAttendee,
-		getEventRegistrantNames,
-		type EventRegistrant
+		transferB1GAttendee
 	} from '$lib/services/attendance';
+	import { onMount } from 'svelte';
 	import type {
 		AttendeeRegistrationData,
 		B1GRegistrationData,
-		ELV8RegistrationData,
 		Ministry,
 		SearchResult,
 		CheckedInAttendee,
@@ -29,9 +26,8 @@
 	import TabButton from '$lib/components/TabButton.svelte';
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
 	import B1GRegistrationForm from '$lib/components/B1GRegistrationForm.svelte';
-	import ELV8RegistrationForm from '$lib/components/ELV8RegistrationForm.svelte';
-	// import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
-	// import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
+	import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
+	import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { validateRegistrationForm } from '$lib/utils/validation';
 
@@ -64,17 +60,6 @@
 		gender: 'Male'
 	});
 
-	// ELEVATE (ELV8) registration form state
-	let elv8Form = $state<ELV8RegistrationData>({
-		first_name: '',
-		last_name: '',
-		birth_month: '',
-		birth_year: '',
-		contact_number: '',
-		social_media_name: '',
-		gender: 'Male'
-	});
-
 	// Search state for returning users
 	let searchQuery = $state('');
 	let searchResults = $state<SearchResult[]>([]);
@@ -91,27 +76,19 @@
 	let isLoadingFacilitators = $state(false);
 
 	// UI state
-	let activePath: 'new' | 'new_b1g' | 'new_elv8' | 'returning' | 'facilitators' = $state('new_b1g');
+	let activePath: 'new' | 'new_b1g' | 'returning' | 'facilitators' = $state('new');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
 	let showSuccessToast = $state(false);
 
-	// Event registrants promo box state
-	let eventRegistrants = $state<EventRegistrant[]>([]);
-	let isLoadingRegistrants = $state(false);
+	// Today's check-in counts
+	const b1gCount = $derived(checkedInAttendees.filter((a) => a.ministry === 'b1g').length);
+	const elevateCount = $derived(checkedInAttendees.filter((a) => a.ministry === 'elevate').length);
+	const totalCount = $derived(checkedInAttendees.length);
 
-	$effect(() => {
-		(async () => {
-			isLoadingRegistrants = true;
-			const response = await getEventRegistrantNames();
-			isLoadingRegistrants = false;
-			if (response.success && response.data) {
-				eventRegistrants = response.data;
-			} else if (response.error) {
-				console.error('Failed to load event registrants:', response.error);
-			}
-		})();
+	onMount(() => {
+		loadCheckedInAttendees();
 	});
 
 	// Password protection for facilitators tab
@@ -206,7 +183,7 @@
 
 			if (response.success) {
 				showSuccess('Welcome to Elevate! You are checked in.');
-				// Reset form
+				await loadCheckedInAttendees();
 				registrationForm = {
 					first_name: '',
 					last_name: '',
@@ -322,10 +299,6 @@
 		b1gForm = { ...b1gForm, ...data };
 	}
 
-	function handleELV8FormUpdate(data: Partial<ELV8RegistrationData>) {
-		elv8Form = { ...elv8Form, ...data };
-	}
-
 	async function handleB1GRegistration() {
 		successMessage = '';
 		errorMessage = '';
@@ -344,6 +317,7 @@
 
 			if (response.success) {
 				showSuccess('Welcome to B1G Eastwood! You are checked in.');
+				await loadCheckedInAttendees();
 				b1gForm = {
 					first_name: '',
 					last_name: '',
@@ -359,44 +333,6 @@
 		} catch (error) {
 			showError('An unexpected error occurred. Please try again.');
 			console.error('B1G registration error:', error);
-		} finally {
-			isSubmitting = false;
-		}
-	}
-
-	async function handleELV8Registration() {
-		successMessage = '';
-		errorMessage = '';
-
-		const contactNumber = elv8Form.contact_number.trim();
-		const formattedContactNumber = contactNumber.startsWith('+63')
-			? contactNumber
-			: `+63${contactNumber}`;
-
-		isSubmitting = true;
-		try {
-			const response = await registerNewELV8AttendeeAndCheckIn({
-				...elv8Form,
-				contact_number: formattedContactNumber
-			});
-
-			if (response.success) {
-				showSuccess('Welcome to ELEVATE! You are checked in.');
-				elv8Form = {
-					first_name: '',
-					last_name: '',
-					birth_month: '',
-					birth_year: '',
-					contact_number: '',
-					social_media_name: '',
-					gender: 'Male'
-				};
-			} else {
-				showError(response.error || 'Registration failed. Please try again.');
-			}
-		} catch (error) {
-			showError('An unexpected error occurred. Please try again.');
-			console.error('ELV8 registration error:', error);
 		} finally {
 			isSubmitting = false;
 		}
@@ -475,7 +411,7 @@
 	}
 
 	// Handle tab switching
-	function handleTabSwitch(path: 'new' | 'new_b1g' | 'new_elv8' | 'returning' | 'facilitators') {
+	function handleTabSwitch(path: 'new' | 'new_b1g' | 'returning' | 'facilitators') {
 		// Check password if switching to facilitators tab
 		if (path === 'facilitators' && !isPasswordAuthenticated) {
 			showPasswordModal = true;
@@ -493,14 +429,13 @@
 		}
 	}
 
-	// $effect for returning / facilitators — re-enable with tabs
-	// $effect(() => {
-	// 	if (activePath === 'returning') {
-	// 		loadCheckedInAttendees();
-	// 	} else if (activePath === 'facilitators') {
-	// 		loadFacilitators();
-	// 	}
-	// });
+	$effect(() => {
+		if (activePath === 'returning') {
+			loadCheckedInAttendees();
+		} else if (activePath === 'facilitators') {
+			loadFacilitators();
+		}
+	});
 
 </script>
 
@@ -511,7 +446,7 @@
 			<div class="flex justify-center mb-6">
 				<Logo size="xl" />
 			</div>
-			<div class="space-y-2 w-full max-w-5xl mx-auto px-1 sm:px-0">
+			<div class="w-full max-w-5xl mx-auto px-1 sm:px-0">
 				<div
 					class="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
 				>
@@ -520,10 +455,9 @@
 							text-[clamp(0.65rem,0.4rem+2.4vw,1.5rem)]
 							sm:text-2xl"
 					>
-						See you at May 2 for our ELEVATE x B1G Eastwood{'\u00A0'}Service
+						Welcome to our ELEVATE x B1G Eastwood{'\u00A0'}Service
 					</p>
 				</div>
-				<p class="text-lg sm:text-xl text-gray-600 font-semibold text-center">Pre-register now!</p>
 			</div>
 			<div class="mt-4 w-24 h-1 bg-brand-gradient mx-auto rounded-full"></div>
 		</div>
@@ -539,19 +473,17 @@
 								class="inline-flex h-2.5 w-2.5 rounded-full bg-brand-gradient animate-pulse"
 							></span>
 							<h2 class="text-base sm:text-lg font-bold text-gray-800 tracking-tight">
-								This event will be attended by:
+								Checked in today:
 							</h2>
 						</div>
 
-						{#if isLoadingRegistrants}
+						{#if isLoadingCheckedIn}
 							<div class="flex items-center justify-center py-4">
 								<div
 									class="h-12 w-32 rounded-lg bg-gray-200 animate-pulse"
 								></div>
 							</div>
 						{:else}
-							{@const b1gCount = eventRegistrants.filter((r) => r.ministry === 'b1g').length}
-							{@const elv8Count = eventRegistrants.filter((r) => r.ministry === 'elv8').length}
 							<div class="flex flex-col sm:flex-row items-stretch gap-3">
 								<div
 									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-brand-gradient text-white shadow-brand"
@@ -570,7 +502,7 @@
 										<span class="text-sm sm:text-base font-semibold text-white">ELEVATE</span>
 									</div>
 									<span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums"
-										>{elv8Count}</span
+										>{elevateCount}</span
 									>
 								</div>
 								<div
@@ -582,7 +514,7 @@
 									</div>
 									<span
 										class="text-2xl sm:text-3xl font-extrabold text-pink-700 tabular-nums"
-										>{eventRegistrants.length}</span
+										>{totalCount}</span
 									>
 								</div>
 							</div>
@@ -595,24 +527,16 @@
 		<!-- Enhanced Tab Navigation -->
 		<div class="flex justify-center mb-10">
 			<div class="inline-flex rounded-xl bg-white p-1.5 shadow-brand glass">
-				<!-- Temporarily hidden: Elevate Registration
 				<TabButton
 					label="Elevate Registration"
 					isActive={activePath === 'new'}
 					onClick={() => handleTabSwitch('new')}
 				/>
-				-->
 				<TabButton
 					label="B1G Eastwood Registration"
 					isActive={activePath === 'new_b1g'}
 					onClick={() => handleTabSwitch('new_b1g')}
 				/>
-				<TabButton
-					label="ELEVATE Registration"
-					isActive={activePath === 'new_elv8'}
-					onClick={() => handleTabSwitch('new_elv8')}
-				/>
-				<!-- Temporarily hidden: Returning User Check-In + Facilitators
 				<TabButton
 					label="Returning User Check-In"
 					isActive={activePath === 'returning'}
@@ -623,7 +547,6 @@
 					isActive={activePath === 'facilitators'}
 					onClick={() => handleTabSwitch('facilitators')}
 				/>
-				-->
 			</div>
 		</div>
 
@@ -652,17 +575,7 @@
 			/>
 		{/if}
 
-		<!-- Path 1c: ELEVATE (ELV8) Registration -->
-		{#if activePath === 'new_elv8'}
-			<ELV8RegistrationForm
-				formData={elv8Form}
-				{isSubmitting}
-				onSubmit={handleELV8Registration}
-				onUpdate={handleELV8FormUpdate}
-			/>
-		{/if}
-
-		<!-- Path 2+3: Returning User Check-In + Facilitators (commented out)
+		<!-- Path 2: Returning User Check-In -->
 		{#if activePath === 'returning'}
 			<ReturningUserCheckIn
 				{searchQuery}
@@ -677,6 +590,8 @@
 				onRefresh={loadCheckedInAttendees}
 			/>
 		{/if}
+
+		<!-- Path 3: Facilitators -->
 		{#if activePath === 'facilitators' && isPasswordAuthenticated}
 			<FacilitatorTab
 				{facilitators}
@@ -687,11 +602,78 @@
 				disabled={isSubmitting}
 			/>
 		{/if}
-		-->
 	</div>
 
 	<!-- Success Toast (Centered) -->
 	<Toast type="success" message={successMessage} show={showSuccessToast} />
 
-	<!-- Password modal — restore with Facilitators tab: {#if showPasswordModal} ... {/if} -->
+	<!-- Password Modal -->
+	{#if showPasswordModal}
+		<div
+			class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+			onclick={closePasswordModal}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="password-modal-title"
+		>
+			<div
+				class="glass rounded-2xl shadow-brand-lg max-w-md w-full p-8 animate-slide-in-up"
+				onclick={(e) => e.stopPropagation()}
+				role="document"
+			>
+				<div class="text-center mb-6">
+					<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+						<svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+						</svg>
+					</div>
+					<h3 id="password-modal-title" class="text-xl font-bold text-gray-900 mb-2">
+						Access Facilitators Panel
+					</h3>
+					<p class="text-gray-600">Enter the password to continue</p>
+				</div>
+
+				{#if passwordError}
+					<div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl animate-fade-in">
+						<p class="text-sm font-semibold text-red-600">{passwordError}</p>
+					</div>
+				{/if}
+
+				<div class="mb-6">
+					<label for="password-input" class="block text-sm font-semibold text-gray-900 mb-3">
+						Password
+					</label>
+					<input
+						type="password"
+						id="password-input"
+						bind:value={facilitatorPasswordInput}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								handlePasswordSubmit();
+							}
+						}}
+						class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus-brand font-medium"
+						placeholder="Enter password"
+					/>
+				</div>
+
+				<div class="flex gap-3">
+					<button
+						type="button"
+						onclick={closePasswordModal}
+						class="flex-1 px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-xl hover:bg-gray-200 transition-all duration-300"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handlePasswordSubmit}
+						class="flex-1 px-6 py-3 text-sm font-bold text-white bg-brand-gradient rounded-xl hover:shadow-brand transition-all duration-300 transform hover:scale-105"
+					>
+						Submit
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>
