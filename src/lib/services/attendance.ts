@@ -762,10 +762,12 @@ export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facili
 	try {
 		const today = new Date().toISOString().split('T')[0];
 
-		// Get all checked-in attendee IDs for today
+		// Get all checked-in person IDs for today (Elevate + B1G).
+		// `facilitators.id` is reused as either an Elevate `attendees.id` or a B1G
+		// `b1g_attendees.id` (see promoteAttendeeToFacilitator), so both columns matter.
 		const { data: attendanceLogs, error: attendanceError } = await supabase
 			.from('attendance_log')
-			.select('attendee_id')
+			.select('attendee_id, b1g_attendee_id')
 			.eq('service_date', today);
 
 		if (attendanceError) {
@@ -782,12 +784,10 @@ export async function getCheckedInFacilitators(): Promise<ServiceResponse<Facili
 			};
 		}
 
-		// Extract unique attendee IDs
-		// attendee_id can be null for B1G rows; filter nulls and dedupe
 		const checkedInAttendeeIds = [
 			...new Set(
 				attendanceLogs
-					.map((log) => log.attendee_id)
+					.flatMap((log) => [log.attendee_id, log.b1g_attendee_id])
 					.filter((id): id is string => id !== null)
 			)
 		];
