@@ -1,7 +1,6 @@
 <script lang="ts">
 	import {
 		registerNewAttendeeAndCheckIn,
-		registerNewB1GAttendeeAndCheckIn,
 		searchAttendees,
 		checkInAttendee,
 		getCheckedInAttendeesToday,
@@ -16,7 +15,6 @@
 	import { onMount } from 'svelte';
 	import type {
 		AttendeeRegistrationData,
-		B1GRegistrationData,
 		Ministry,
 		SearchResult,
 		CheckedInAttendee,
@@ -27,7 +25,6 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import TabButton from '$lib/components/TabButton.svelte';
 	import RegistrationForm from '$lib/components/RegistrationForm.svelte';
-	import B1GRegistrationForm from '$lib/components/B1GRegistrationForm.svelte';
 	import ReturningUserCheckIn from '$lib/components/ReturningUserCheckIn.svelte';
 	import FacilitatorTab from '$lib/components/FacilitatorTab.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -51,17 +48,6 @@
 		heard_about_elevate: ''
 	});
 
-	// B1G Eastwood registration form state
-	let b1gForm = $state<B1GRegistrationData>({
-		first_name: '',
-		last_name: '',
-		birth_month: '',
-		birth_year: '',
-		contact_number: '',
-		social_media_name: '',
-		gender: 'Male'
-	});
-
 	// Search state for returning users
 	let searchQuery = $state('');
 	let searchResults = $state<SearchResult[]>([]);
@@ -78,15 +64,13 @@
 	let isLoadingFacilitators = $state(false);
 
 	// UI state
-	let activePath: 'new' | 'new_b1g' | 'returning' | 'facilitators' = $state('new');
+	let activePath: 'new' | 'returning' | 'facilitators' = $state('new');
 	let isSubmitting = $state(false);
 	let successMessage = $state('');
 	let errorMessage = $state('');
 	let showSuccessToast = $state(false);
 
-	// Today's check-in counts
-	const b1gCount = $derived(checkedInAttendees.filter((a) => a.ministry === 'b1g').length);
-	const elevateCount = $derived(checkedInAttendees.filter((a) => a.ministry === 'elevate').length);
+	// Today's check-in count
 	const totalCount = $derived(checkedInAttendees.length);
 
 	onMount(() => {
@@ -297,49 +281,6 @@
 		registrationForm = { ...registrationForm, ...data };
 	}
 
-	function handleB1GFormUpdate(data: Partial<B1GRegistrationData>) {
-		b1gForm = { ...b1gForm, ...data };
-	}
-
-	async function handleB1GRegistration() {
-		successMessage = '';
-		errorMessage = '';
-
-		const contactNumber = b1gForm.contact_number.trim();
-		const formattedContactNumber = contactNumber.startsWith('+63')
-			? contactNumber
-			: `+63${contactNumber}`;
-
-		isSubmitting = true;
-		try {
-			const response = await registerNewB1GAttendeeAndCheckIn({
-				...b1gForm,
-				contact_number: formattedContactNumber
-			});
-
-			if (response.success) {
-				showSuccess('Welcome to B1G Eastwood! You are checked in.');
-				await loadCheckedInAttendees();
-				b1gForm = {
-					first_name: '',
-					last_name: '',
-					birth_month: '',
-					birth_year: '',
-					contact_number: '',
-					social_media_name: '',
-					gender: 'Male'
-				};
-			} else {
-				showError(response.error || 'Registration failed. Please try again.');
-			}
-		} catch (error) {
-			showError('An unexpected error occurred. Please try again.');
-			console.error('B1G registration error:', error);
-		} finally {
-			isSubmitting = false;
-		}
-	}
-
 	// Load facilitators
 	async function loadFacilitators() {
 		isLoadingFacilitators = true;
@@ -432,7 +373,7 @@
 	}
 
 	// Handle tab switching
-	function handleTabSwitch(path: 'new' | 'new_b1g' | 'returning' | 'facilitators') {
+	function handleTabSwitch(path: 'new' | 'returning' | 'facilitators') {
 		// Check password if switching to facilitators tab
 		if (path === 'facilitators' && !isPasswordAuthenticated) {
 			showPasswordModal = true;
@@ -476,7 +417,7 @@
 							text-[clamp(0.65rem,0.4rem+2.4vw,1.5rem)]
 							sm:text-2xl"
 					>
-						Welcome to our ELEVATE x B1G Eastwood{'\u00A0'}Service
+						Welcome to our Elevate Eastwood{'\u00A0'}Service
 					</p>
 				</div>
 			</div>
@@ -505,39 +446,14 @@
 								></div>
 							</div>
 						{:else}
-							<div class="flex flex-col sm:flex-row items-stretch gap-3">
-								<div
-									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-brand-gradient text-white shadow-brand"
-								>
-									<div class="flex items-center gap-2">
-										<span class="inline-block h-2.5 w-2.5 rounded-full bg-white/80"></span>
-										<span class="text-sm sm:text-base font-semibold">B1G Eastwood</span>
-									</div>
-									<span class="text-2xl sm:text-3xl font-extrabold tabular-nums">{b1gCount}</span>
+							<div
+								class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-brand-gradient text-white shadow-brand"
+							>
+								<div class="flex items-center gap-2">
+									<span class="inline-block h-2.5 w-2.5 rounded-full bg-white/80"></span>
+									<span class="text-sm sm:text-base font-semibold">Elevate Eastwood</span>
 								</div>
-								<div
-									class="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-black border border-zinc-800"
-								>
-									<div class="flex items-center gap-2">
-										<span class="inline-block h-2.5 w-2.5 rounded-full bg-white/80"></span>
-										<span class="text-sm sm:text-base font-semibold text-white">ELEVATE</span>
-									</div>
-									<span class="text-2xl sm:text-3xl font-extrabold text-white tabular-nums"
-										>{elevateCount}</span
-									>
-								</div>
-								<div
-									class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200 sm:min-w-[140px]"
-								>
-									<div class="flex items-center gap-2">
-										<span class="inline-block h-2.5 w-2.5 rounded-full bg-pink-500"></span>
-										<span class="text-sm sm:text-base font-semibold text-pink-800">Total</span>
-									</div>
-									<span
-										class="text-2xl sm:text-3xl font-extrabold text-pink-700 tabular-nums"
-										>{totalCount}</span
-									>
-								</div>
+								<span class="text-2xl sm:text-3xl font-extrabold tabular-nums">{totalCount}</span>
 							</div>
 						{/if}
 					</div>
@@ -549,14 +465,9 @@
 		<div class="flex justify-center mb-10">
 			<div class="inline-flex rounded-xl bg-white p-1.5 shadow-brand glass">
 				<TabButton
-					label="Elevate Registration"
+					label="Registration"
 					isActive={activePath === 'new'}
 					onClick={() => handleTabSwitch('new')}
-				/>
-				<TabButton
-					label="B1G Eastwood Registration"
-					isActive={activePath === 'new_b1g'}
-					onClick={() => handleTabSwitch('new_b1g')}
 				/>
 				<TabButton
 					label="Check-In"
@@ -583,16 +494,6 @@
 				{isSubmitting}
 				onSubmit={handleRegistration}
 				onUpdate={handleFormUpdate}
-			/>
-		{/if}
-
-		<!-- Path 1b: B1G Eastwood Registration -->
-		{#if activePath === 'new_b1g'}
-			<B1GRegistrationForm
-				formData={b1gForm}
-				{isSubmitting}
-				onSubmit={handleB1GRegistration}
-				onUpdate={handleB1GFormUpdate}
 			/>
 		{/if}
 
