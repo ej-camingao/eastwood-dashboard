@@ -1,119 +1,79 @@
-# Onboarding – Eastwood Dashboard (Elevate Saturday Service)
+# Onboarding
 
-Day-one guide for a junior engineer. Scan top-to-bottom; jump into code via the file pointers.
+Day-one guide for someone changing the Elevate Eastwood check-in app. Read this page, then the two references it points at.
 
----
+## What this is
 
-## 1. What this is
+A mobile-first SvelteKit app for Saturday service registration, returning check-in, and facilitator breakout groups. Data lives in Supabase. The browser uses the anon key. There is no server route in this repo.
 
-Mobile-first **SvelteKit** app for the **Elevate Saturday Service registration and check-in** flow. Supports:
+Package name: `eastwood-dashboard`. Product name in the UI: Elevate Eastwood / Elevate Saturday Service.
 
-- First-time attendee registration
-- Returning-user search + same-day check-in (with duplicate prevention)
-- Facilitator-related UI
+## Read next
 
-Data lives in **Supabase (PostgreSQL)**. There is **no custom backend** in this repo — the browser talks to Supabase directly using the anon key + RLS.
+1. [architecture.md](architecture.md) — tabs, service functions, and which ministries are actually on the page.
+2. [database.md](database.md) — tables, the real migration order, and why `schema.sql` is not enough.
+3. [supabase/README_IS_FACILITATING.md](../supabase/README_IS_FACILITATING.md) — hiding a facilitator without deleting them.
 
-(npm package name is `eastwood-dashboard`; product name in README is “Elevate Saturday Service – Registration App”.)
+## Stack
 
----
+| Layer | Tech |
+| ----- | ---- |
+| Runtime | Node.js 20.19+ or 22.12+ |
+| App | SvelteKit 2, Svelte 5, TypeScript |
+| Build | Vite 7, `@sveltejs/adapter-auto` |
+| Style | Tailwind CSS 4 |
+| Data | `@supabase/supabase-js` |
 
-## 2. Stack & dependencies
+`npm run check` is the only quality gate. No unit tests, Playwright, ESLint, Prettier, or CI config are in the tree.
 
-| Layer    | Tech                                                  |
-| -------- | ----------------------------------------------------- |
-| Runtime  | Node **18+** (`.npmrc` sets `engine-strict=true`)     |
-| App      | **SvelteKit 2.x**, **Svelte 5.x**, **TypeScript** strict |
-| Build    | **Vite 7.x**, `@sveltejs/adapter-auto`                |
-| Styling  | **Tailwind CSS 4** via `@tailwindcss/vite`            |
-| Data     | **Supabase** (`@supabase/supabase-js`)                |
-
-Not configured: test runner, ESLint, Prettier, Playwright, CI workflows.
-
----
-
-## 3. How to run it
+## Run it
 
 1. `npm install`
-2. Apply DB in Supabase SQL Editor:
-   - Run `supabase/schema.sql`
-   - Apply `supabase/migration_*.sql` as needed (order not centrally documented — read each script or ask the team)
-3. Create `.env` at repo root (no `.env.example` is committed):
+2. Apply SQL using the order in [database.md](database.md).
+3. Create `.env` (nothing named `.env.example` is committed):
 
    ```env
    PUBLIC_SUPABASE_URL=...
    PUBLIC_SUPABASE_ANON_KEY=...
    ```
 
-4. `npm run dev` → http://localhost:5173
+4. `npm run dev`
 
-| Command          | Purpose                        |
-| ---------------- | ------------------------------ |
-| `npm run dev`    | Dev server                     |
-| `npm run build`  | Production build               |
-| `npm run preview`| Preview production build       |
-| `npm run check`  | `svelte-check` (types/templates) — primary quality gate |
+If those variables are missing, `src/lib/supabase.ts` throws at import and the app does not boot.
 
-If `PUBLIC_SUPABASE_*` are missing, `src/lib/supabase.ts` **throws at import** and the app will not boot.
+## Where the code lives
 
----
+| Path | Role |
+| ---- | ---- |
+| `src/routes/+page.svelte` | Tabs, registration submit, search debounce, facilitator password flag |
+| `src/lib/services/attendance.ts` | Every Supabase call and check-in rule |
+| `src/lib/components/` | UI. `RegistrationForm` is the live registration form. B1G and ELV8 forms are unused by the route. |
+| `src/lib/types/attendance.ts` | Domain types (`Ministry`, forms, `ServiceResponse`) |
+| `src/lib/types/database.types.ts` | Table typings for the Supabase client |
+| `src/lib/utils/` | `validation.ts`, `formatting.ts`, `constants.ts` |
+| `supabase/` | `schema.sql` plus migrations |
 
-## 4. Project structure
+## Suggested path through the code
 
-| Path                              | Role                                                                 |
-| --------------------------------- | -------------------------------------------------------------------- |
-| `src/routes/+layout.svelte`       | App shell (fonts, favicon, wrapper)                                  |
-| `src/routes/+page.svelte`         | Single main page — tabs & state (no `+page.server.ts` / hooks)       |
-| `src/lib/services/attendance.ts`  | **Central** Supabase calls + registration/check-in business rules (large file) |
-| `src/lib/components/*.svelte`     | UI: `RegistrationForm`, `ReturningUserCheckIn`, `FacilitatorTab`, `SearchInput`, `Toast`, `Alert`, `AttendeeCard`, `AttendeeList`, `FormField`, `TabButton`, `Logo`, `FacilitatorCard` |
-| `src/lib/utils/`                  | `validation.ts`, `constants.ts`, `formatting.ts`                     |
-| `src/lib/types/`                  | `attendance.ts`, `database.types.ts` (Supabase-typed)                |
-| `src/lib/supabase.ts`             | Single Supabase client export (`persistSession: false`, `autoRefreshToken: false`) |
-| `supabase/`                       | `schema.sql`, multiple `migration_*.sql`, `README_IS_FACILITATING.md`|
-| `static/`                         | `robots.txt`, `elevate-full-logo.png`                                |
+1. `src/routes/+page.svelte` — see `activePath` and the three handlers: register, check in, transfer.
+2. `registerNewAttendeeAndCheckIn`, `searchAttendees`, and `checkInAttendee` in `attendance.ts`.
+3. `assignFacilitatorToAttendee` and `getAllFacilitatorsWithAttendees` when you touch breakout groups.
+4. `attendance.ts` types before changing a query. Then confirm the column exists in [database.md](database.md), not only in `schema.sql`.
 
----
+## Practices
 
-## 5. Main concepts & where they live
+- UI state uses Svelte 5 runes. Components expose callback props.
+- Env vars are `PUBLIC_*` only, imported from `$env/static/public`.
+- Put new queries in `attendance.ts` and return `ServiceResponse`.
+- Schema changes need a migration, an update to `database.types.ts`, and a matching domain type.
 
-- **Attendee / attendance domain** — types in `src/lib/types/attendance.ts`; all persistence and rules in **`src/lib/services/attendance.ts`** (maps to README tables `attendees`, `attendance_log`).
-- **First-time registration** — `components/RegistrationForm.svelte` + `utils/validation.ts`.
-- **Returning user check-in** — `components/ReturningUserCheckIn.svelte` + `SearchInput.svelte`; debounced search against Supabase via `attendance.ts`.
-- **Facilitators** — `components/FacilitatorTab.svelte`, `FacilitatorCard.svelte`; see `supabase/README_IS_FACILITATING.md` and the facilitator migrations.
-- **DB type contract** — `src/lib/types/database.types.ts` (keep synced when schema changes).
+## Gotchas
 
----
-
-## 6. Conventions & practices
-
-- **Svelte 5 runes** (`$state`, `$props`) — no separate global store package.
-- **Env**: only `PUBLIC_*` vars, imported via `$env/static/public`.
-- **Quality gate today**: `npm run check` only. No unit/E2E tests in the tree.
-- **Security model**: anon key in the browser + **Supabase RLS / policies**. Enforcement lives in SQL migrations, not in TS.
-
----
-
-## 7. Where to start as a junior
-
-1. Read `README.md` for product behavior and schema overview.
-2. Open `src/routes/+page.svelte` — entry point for tabs and top-level state.
-3. Read `src/lib/services/attendance.ts` in chunks — source of truth for Supabase usage and business rules.
-4. Skim `src/lib/types/attendance.ts` and `database.types.ts` before touching any query/insert.
-5. For facilitator logic, read `supabase/README_IS_FACILITATING.md` and the related migrations.
-
-**Before changing check-in/registration rules:** align with whoever owns Supabase **RLS / policies** — migrations reference policies, and behavior is not only in TypeScript.
-
----
-
-## 8. Gotchas & important notes
-
-- **No `.env.example` committed** despite README — create `.env` manually.
-- **Favicon mismatch**: `+layout.svelte` references `/elevate-logo.png`, but `static/` actually contains `elevate-full-logo.png`. Either rename the file or update the `<link rel="icon">`.
-- **README tech line** says “SvelteKit 5”; the repo is actually **SvelteKit 2 + Svelte 5** — trust `package.json`.
-- **No SvelteKit server routes / hooks** — all data access is client → Supabase. Do not assume server-side enforcement; rely on RLS.
-- **`src/lib/services/attendance.ts` is large (~1000+ lines)** — concentrates business + Supabase logic. Expect merge conflicts; prefer small, focused changes until it is split.
-- **Migrations**: order is not documented in one place — read each `supabase/migration_*.sql` before applying to an existing database.
-
----
-
-**Verified against:** `package.json`, `README.md`, `src/lib/supabase.ts`, `src/routes/+layout.svelte`, and directory listings of `src/lib`, `src/routes`, `supabase`, and `static`.
+- **`schema.sql` is behind the migrations.** ELV8, log name columns, B1G gender, nullable contact numbers, and the `attendance_log` update policy live in later SQL files. Transfers fail without that update policy.
+- **`attendance.ts` is about 1,900 lines.** It is the only data module. Expect conflicts; keep changes narrow.
+- **ELV8 and B1G registration are not on the home page.** Search and facilitators include B1G. ELV8 registration can insert rows, and the dashboard will not list them correctly.
+- **B1G registration does not save `gender`.** Auto-assign on a later check-in looks at the stored gender and can no-op.
+- **Service date is UTC** (`toISOString` date slice), which can roll over before midnight in the Philippines.
+- **Facilitators password** is a string in `+page.svelte`. It only hides the tab in the UI. Supabase policies still allow the anon key to read and write facilitator data.
+- **Assets:** `+layout.svelte` requests `/elevate-logo.png` and `Logo.svelte` requests `/elevate-full-logo.png`. `static/` currently has `robots.txt` and `attendance_log_rows.csv`. The CSV is a check-in export and is served as a public static file.
+- **`.npmrc` sets `engine-strict=true`** and `package.json` has no `engines` field, so npm will not enforce the Node version for you.

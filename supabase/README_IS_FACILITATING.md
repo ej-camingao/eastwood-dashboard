@@ -1,5 +1,7 @@
 # is_facilitating Feature
 
+Tables, policies, and migration order for the whole database are in [docs/database.md](../docs/database.md). This note covers only the facilitator opt-out flag.
+
 ## Overview
 The `is_facilitating` column allows facilitators to opt out of facilitating while still being present as regular attendees. When a facilitator sets `is_facilitating` to `false`, they will:
 
