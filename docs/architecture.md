@@ -1,6 +1,6 @@
 # Architecture
 
-Elevate Eastwood is a single-page SvelteKit app. One route renders three tabs. Every database call goes from the browser to Supabase through `src/lib/services/attendance.ts`.
+Elevate Eastwood is a SvelteKit app. The public route renders three tabs, and `/admin-search` is a hidden officer route. Every database call goes from the browser to Supabase through `src/lib/services/attendance.ts`.
 
 ## Runtime
 
@@ -32,7 +32,7 @@ Build config:
 
 `src/routes/+layout.svelte` loads `app.css`, Inter, the document title **Elevate Saturday Service - Registration & Check-In**, and a full-height gradient wrapper.
 
-`src/routes/+page.svelte` is the whole product:
+`src/routes/+page.svelte` is the public check-in page:
 
 1. Logo and “Welcome to our Elevate Eastwood Service”
 2. “Checked in today” count (length of today’s attendance list, loaded on mount)
@@ -73,9 +73,9 @@ Elevate auto-assign order inside `assignFacilitatorToAttendee`:
 3. Use `attendees.default_facilitator_id` when that facilitator is checked in today and the gender matches. This column is set in Supabase, not by the form.
 4. Otherwise balance across facilitators of the same gender who are checked in today and have `is_facilitating = true`.
 
-### Returning search (Elevate and B1G)
+### Returning search (Elevate)
 
-`searchAttendees` queries `attendees` and `b1g_attendees` in parallel with a case-insensitive `or` filter on first name, last name, and contact number, limited to 10 rows each. Results carry `ministry: 'elevate' | 'b1g'`. ELV8 is not searched.
+`searchAttendees` queries `attendees` only, with a case-insensitive `or` filter on first name, last name, and contact number, limited to 10 rows. Every result is `ministry: 'elevate'`. B1G and ELV8 are not searched.
 
 `checkInAttendee(id, ministry)` rejects a duplicate for that person and service date, inserts the log with name snapshots, then assigns a facilitator (Elevate via `assignFacilitatorToAttendee`, B1G via `assignFacilitatorToB1GAttendee` when gender is known).
 
@@ -108,6 +108,16 @@ Elevate auto-assign order inside `assignFacilitatorToAttendee`:
 
 `FacilitatorTab` groups cards by gender. Empty state tells the operator to add facilitators in Supabase.
 
+## Admin attendee search
+
+`/admin-search` is not linked from the check-in page. A password constant in `src/routes/admin-search/+page.svelte` gates the screen in the browser, the same way the Facilitators tab does. Refreshing asks for the password again. It is not an account, token, or server check. Supabase anon policies still allow a direct update of any attendee row.
+
+After the gate, `listElevateAttendees` loads Elevate attendees and shows them immediately, before any name is typed. The list is titled Attendees. First-timers stay first, then everyone else, each ordered by first name. Each row shows a First-timer tag when that flag is set, and either a DGroup or No DGroup tag. About four names are visible so the profile below stays on screen. The name field filters that list. Choosing a person shows the full Elevate profile. `searchElevateAttendeesByName` is a separate capped name query (25 rows) that uses the same first-timer order.
+
+`updateElevateAttendeeAdminFields` can change `is_dgroup_member`, `dgroup_leader_name`, `is_first_timer`, and `default_facilitator_id` for any Elevate attendee. Turning DGroup off clears the leader name. Turning it on requires a leader name already stored on an attendee (`listDgroupLeaderNames`). A default facilitator that is already set cannot be cleared, must exist, and a different one must match the attendee's gender, because auto-assign ignores a mismatch. When none is set, the officer can leave it empty or assign a same-gender facilitator.
+
+`getDefaultFacilitatorChoices` fills the picker with same-gender facilitators who have `is_facilitating = true`, and still includes the current assignee when that flag is false so their name remains visible.
+
 ## Components
 
 | File | Role |
@@ -117,7 +127,8 @@ Elevate auto-assign order inside `assignFacilitatorToAttendee`:
 | `ELV8RegistrationForm.svelte` | ELV8 form, titled “ELEVATE Registration”. Not mounted. |
 | `ReturningUserCheckIn.svelte` | Search panel plus today’s attendance. |
 | `SearchInput.svelte` | Search field and spinner. |
-| `AttendeeCard.svelte` | One search hit and a Check In action. Badge is Elevate or B1G. |
+| `AdminAttendeePanel.svelte` | Elevate profile on `/admin-search`, with DGroup, first-timer, and default facilitator edits. |
+| `AttendeeCard.svelte` | One search hit and a Check In action. Search results are Elevate. |
 | `AttendeeList.svelte` | Today’s roster, refresh, and remove. |
 | `FacilitatorTab.svelte` | Gender sections and the transfer modal. |
 | `FacilitatorCard.svelte` | One facilitator, their downline, transfer, and demote. |
@@ -134,6 +145,7 @@ Elevate auto-assign order inside `assignFacilitatorToAttendee`:
 - `Ministry = 'elevate' | 'b1g' | 'elv8'`
 - `Attendee`, `B1GAttendee`, `ELV8Attendee` and matching registration payloads
 - `SearchResult`, `CheckedInAttendee`, `Facilitator`, `FacilitatorWithAttendees`
+- `ElevateAttendeeAdminPatch` — DGroup, first-timer, and default facilitator fields for `/admin-search`
 - `ServiceResponse<T>` — `{ success, data?, error? }`
 
 `src/lib/types/database.types.ts` is the Supabase row contract used by the client. Update it when columns change. Relationship arrays in that file are empty, so foreign keys are not expressed in the generated-style types.
@@ -142,7 +154,7 @@ Elevate auto-assign order inside `assignFacilitatorToAttendee`:
 
 ## Conventions
 
-- Keep Supabase calls in `attendance.ts`. The file is about 1,900 lines; small edits are easier to review than a drive-by split.
+- Keep Supabase calls in `attendance.ts`. The file is about 2,100 lines; small edits are easier to review than a drive-by split.
 - Public env vars only, via `$env/static/public`.
 - Gender for matching is `'Male' | 'Female'`.
 - Heard-about values: Facebook, Friend, Family, Instagram, Others.
@@ -151,7 +163,7 @@ Elevate auto-assign order inside `assignFacilitatorToAttendee`:
 
 - Home page does not mount B1G or ELV8 registration.
 - B1G insert omits `gender`, so stored gender stays null.
-- Today’s list and search ignore ELV8.
+- Returning search ignores B1G and ELV8. Today's list ignores ELV8.
 - Service date is UTC, not Asia/Manila.
 - Logo and favicon paths 404 until those PNGs are added under `static/`.
 - `static/attendance_log_rows.csv` is a real check-in export and is publicly served with the site.

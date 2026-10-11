@@ -2,6 +2,7 @@ import { supabase } from '$lib/supabase';
 import type {
 	Attendee,
 	AttendeeRegistrationData,
+	ElevateAttendeeAdminPatch,
 	B1GAttendee,
 	B1GRegistrationData,
 	ELV8Attendee,
@@ -381,9 +382,8 @@ export async function registerNewELV8AttendeeAndCheckIn(
 }
 
 /**
- * Search for attendees by name or contact number (case-insensitive).
- * Queries both Elevate (`attendees`) and B1G (`b1g_attendees`) tables and merges results
- * with a `ministry` discriminator.
+ * Search Elevate attendees by name or contact number (case-insensitive).
+ * B1G is not included.
  */
 export async function searchAttendees(searchString: string): Promise<ServiceResponse<SearchResult[]>> {
 	try {
@@ -397,30 +397,19 @@ export async function searchAttendees(searchString: string): Promise<ServiceResp
 		const searchTerm = searchString.trim();
 		const orFilter = `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,contact_number.ilike.%${searchTerm}%`;
 
-		const [elevateResp, b1gResp] = await Promise.all([
-			supabase
-				.from('attendees')
-				.select('id, first_name, last_name, contact_number')
-				.or(orFilter)
-				.limit(10)
-				.order('first_name', { ascending: true }),
-			supabase
-				.from('b1g_attendees')
-				.select('id, first_name, last_name, contact_number')
-				.or(orFilter)
-				.limit(10)
-				.order('first_name', { ascending: true })
-		]);
+		const { data, error } = await supabase
+			.from('attendees')
+			.select('id, first_name, last_name, contact_number')
+			.or(orFilter)
+			.limit(10)
+			.order('first_name', { ascending: true });
 
-		if (elevateResp.error) {
-			return { success: false, error: elevateResp.error.message || 'Failed to search attendees.' };
-		}
-		if (b1gResp.error) {
-			return { success: false, error: b1gResp.error.message || 'Failed to search B1G attendees.' };
+		if (error) {
+			return { success: false, error: error.message || 'Failed to search attendees.' };
 		}
 
-		const elevateResults: SearchResult[] =
-			elevateResp.data?.map((attendee) => ({
+		const results: SearchResult[] =
+			data?.map((attendee) => ({
 				id: attendee.id,
 				first_name: attendee.first_name,
 				last_name: attendee.last_name,
@@ -429,26 +418,279 @@ export async function searchAttendees(searchString: string): Promise<ServiceResp
 				ministry: 'elevate' as Ministry
 			})) || [];
 
-		const b1gResults: SearchResult[] =
-			b1gResp.data?.map((attendee) => ({
-				id: attendee.id,
-				first_name: attendee.first_name,
-				last_name: attendee.last_name,
-				contact_number: attendee.contact_number,
-				full_name: `${attendee.first_name} ${attendee.last_name}`,
-				ministry: 'b1g' as Ministry
-			})) || [];
-
-		const merged = [...elevateResults, ...b1gResults].sort((a, b) =>
-			a.first_name.localeCompare(b.first_name)
-		);
-
 		return {
 			success: true,
-			data: merged
+			data: results
 		};
 	} catch (error) {
 		console.error('Error in searchAttendees:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Search Elevate attendees by first or last name.
+ * Separate from `searchAttendees`, which returns only Elevate name and contact.
+ */
+export async function searchElevateAttendeesByName(
+	query: string
+): Promise<ServiceResponse<Attendee[]>> {
+	try {
+		const searchTerm = query?.trim() ?? '';
+		if (searchTerm.length < 2) {
+			return { success: true, data: [] };
+		}
+
+		const orFilter = `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`;
+		const { data, error } = await supabase
+			.from('attendees')
+			.select('*')
+			.or(orFilter)
+			.order('is_first_timer', { ascending: false })
+			.order('first_name', { ascending: true })
+			.order('last_name', { ascending: true })
+			.limit(25);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to search attendees.' };
+		}
+
+		return {
+			success: true,
+			data: (data || []).map((row) => asAttendee(row))
+		};
+	} catch (error) {
+		console.error('Error in searchElevateAttendeesByName:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Every Elevate attendee, first-timers first, then first name.
+ * Used by `/admin-search` before a name is typed.
+ */
+export async function listElevateAttendees(): Promise<ServiceResponse<Attendee[]>> {
+	try {
+		const { data, error } = await supabase
+			.from('attendees')
+			.select('*')
+			.order('is_first_timer', { ascending: false })
+			.order('first_name', { ascending: true })
+			.order('last_name', { ascending: true })
+			.limit(1000);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load attendees.' };
+		}
+
+		return {
+			success: true,
+			data: (data || []).map((row) => asAttendee(row))
+		};
+	} catch (error) {
+		console.error('Error in listElevateAttendees:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Distinct DGroup leader names already stored on Elevate attendees.
+ */
+export async function listDgroupLeaderNames(): Promise<ServiceResponse<string[]>> {
+	try {
+		const { data, error } = await supabase
+			.from('attendees')
+			.select('dgroup_leader_name')
+			.not('dgroup_leader_name', 'is', null);
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to load DGroup leaders.' };
+		}
+
+		const names = new Set<string>();
+		for (const row of data ?? []) {
+			const name = row.dgroup_leader_name?.trim();
+			if (name) names.add(name);
+		}
+
+		return {
+			success: true,
+			data: [...names].sort((a, b) => a.localeCompare(b))
+		};
+	} catch (error) {
+		console.error('Error in listDgroupLeaderNames:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Same-gender facilitators for the admin default-facilitator picker.
+ * Includes the current assignee even when `is_facilitating` is false so their name still shows.
+ */
+export async function getDefaultFacilitatorChoices(
+	gender: 'Male' | 'Female',
+	currentFacilitatorId: string
+): Promise<ServiceResponse<Facilitator[]>> {
+	try {
+		const { data, error } = await supabase
+			.from('facilitators')
+			.select('*')
+			.eq('gender', gender)
+			.eq('is_facilitating', true)
+			.order('first_name', { ascending: true })
+			.order('last_name', { ascending: true });
+
+		if (error) {
+			return { success: false, error: error.message || 'Failed to fetch facilitators.' };
+		}
+
+		const choices = (data || []).map((row) => asFacilitator(row));
+		if (currentFacilitatorId && !choices.some((facilitator) => facilitator.id === currentFacilitatorId)) {
+			const { data: current, error: currentError } = await supabase
+				.from('facilitators')
+				.select('*')
+				.eq('id', currentFacilitatorId)
+				.maybeSingle();
+
+			if (currentError) {
+				return {
+					success: false,
+					error: currentError.message || 'Failed to fetch the current facilitator.'
+				};
+			}
+			if (current) {
+				choices.push(asFacilitator(current));
+				choices.sort(
+					(a, b) =>
+						a.first_name.localeCompare(b.first_name) || a.last_name.localeCompare(b.last_name)
+				);
+			}
+		}
+
+		return { success: true, data: choices };
+	} catch (error) {
+		console.error('Error in getDefaultFacilitatorChoices:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'An unexpected error occurred.'
+		};
+	}
+}
+
+/**
+ * Update DGroup, first-timer, and default facilitator for any Elevate attendee.
+ * A facilitator that is already set cannot be cleared. A DGroup member must use a leader name already on file.
+ */
+export async function updateElevateAttendeeAdminFields(
+	id: string,
+	patch: ElevateAttendeeAdminPatch
+): Promise<ServiceResponse<Attendee>> {
+	try {
+		if (!id) {
+			return { success: false, error: 'Invalid attendee ID.' };
+		}
+
+		const { data: existingRaw, error: loadError } = await supabase
+			.from('attendees')
+			.select('*')
+			.eq('id', id)
+			.maybeSingle();
+
+		if (loadError) {
+			return { success: false, error: loadError.message || 'Failed to load attendee.' };
+		}
+		if (!existingRaw) {
+			return { success: false, error: 'Attendee not found.' };
+		}
+
+		const existing = asAttendee(existingRaw);
+		const nextFacilitatorId = patch.default_facilitator_id?.trim() || null;
+		if (!nextFacilitatorId && existing.default_facilitator_id) {
+			return { success: false, error: 'Choose a default facilitator. This field cannot be cleared.' };
+		}
+
+		if (nextFacilitatorId) {
+			const { data: facilitatorRaw, error: facilitatorError } = await supabase
+				.from('facilitators')
+				.select('id, gender')
+				.eq('id', nextFacilitatorId)
+				.maybeSingle();
+
+			if (facilitatorError) {
+				return {
+					success: false,
+					error: facilitatorError.message || 'Failed to verify the default facilitator.'
+				};
+			}
+			if (!facilitatorRaw) {
+				return { success: false, error: 'That default facilitator does not exist.' };
+			}
+
+			const facilitator = facilitatorRaw as { id: string; gender: string };
+			if (nextFacilitatorId !== existing.default_facilitator_id && facilitator.gender !== existing.gender) {
+				return {
+					success: false,
+					error: 'The default facilitator must be the same gender as the attendee.'
+				};
+			}
+		}
+
+		const isDgroupMember = Boolean(patch.is_dgroup_member);
+		let leaderName: string | null = null;
+		if (isDgroupMember) {
+			const requestedLeader = patch.dgroup_leader_name?.trim() ?? '';
+			if (!requestedLeader) {
+				return { success: false, error: 'Choose a DGroup leader.' };
+			}
+
+			const leaders = await listDgroupLeaderNames();
+			if (!leaders.success || !leaders.data) {
+				return { success: false, error: leaders.error || 'Failed to load DGroup leaders.' };
+			}
+
+			const allowed = new Set(leaders.data);
+			const currentLeader = existing.dgroup_leader_name?.trim();
+			if (currentLeader) allowed.add(currentLeader);
+			if (!allowed.has(requestedLeader)) {
+				return { success: false, error: 'Choose a DGroup leader who is already on file.' };
+			}
+			leaderName = requestedLeader;
+		}
+
+		const { data: updatedRaw, error: updateError } = await supabase
+			.from('attendees')
+			.update({
+				is_dgroup_member: isDgroupMember,
+				dgroup_leader_name: leaderName,
+				is_first_timer: Boolean(patch.is_first_timer),
+				default_facilitator_id: nextFacilitatorId
+			})
+			.eq('id', id)
+			.select('*')
+			.single();
+
+		if (updateError) {
+			return { success: false, error: updateError.message || 'Failed to update attendee.' };
+		}
+		if (!updatedRaw) {
+			return { success: false, error: 'Failed to update attendee.' };
+		}
+
+		return { success: true, data: asAttendee(updatedRaw) };
+	} catch (error) {
+		console.error('Error in updateElevateAttendeeAdminFields:', error);
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : 'An unexpected error occurred.'

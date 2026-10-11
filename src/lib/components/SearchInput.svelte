@@ -5,6 +5,8 @@
 		isSearching?: boolean;
 		disabled?: boolean;
 		placeholder?: string;
+		id?: string;
+		onFocus?: () => void;
 	}
 
 	let {
@@ -12,15 +14,19 @@
 		onInput,
 		isSearching = false,
 		disabled = false,
-		placeholder = 'Type your name or contact number...'
+		placeholder = 'Type your name or contact number...',
+		id,
+		onFocus
 	}: Props = $props();
 </script>
 
 <div class="relative">
 	<input
 		type="text"
+		{id}
 		bind:value
 		oninput={(e) => onInput(e.currentTarget.value)}
+		onfocus={() => onFocus?.()}
 		{disabled}
 		{placeholder}
 		autocomplete="off"

@@ -107,6 +107,14 @@ export interface SearchResult {
 	ministry: Ministry;
 }
 
+/** Fields an officer can change on `/admin-search` for any Elevate attendee. */
+export interface ElevateAttendeeAdminPatch {
+	is_dgroup_member: boolean;
+	dgroup_leader_name: string | null;
+	is_first_timer: boolean;
+	default_facilitator_id: string | null;
+}
+
 export interface CheckedInAttendee {
 	attendance_log_id: string;
 	attendee_id: string;
